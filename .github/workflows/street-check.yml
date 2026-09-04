@@ -8,76 +8,60 @@ permissions:
 jobs:
   street:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
-      - name: Test the actual street and alternate open imagery
+      - name: Verify native embedded street imagery
         run: |
           mkdir -p /tmp/street-check
           cd /tmp/street-check
           npm init -y >/dev/null
-          npm install --no-audit --no-fund playwright@1.55.0
-          npx playwright install --with-deps chromium
+          npm install --no-audit --no-fund playwright@1.55.0 >/dev/null
           cat > probe.cjs <<'JS'
           const {chromium}=require('playwright');
           const fs=require('fs');
           (async()=>{
-            const browser=await chromium.launch({headless:true});
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
             const context=await browser.newContext({viewport:{width:1280,height:800},locale:'en-US'});
-            const points=[
-              ['north',25.59280,-108.47156],
-              ['block2',25.59194,-108.47114],
-              ['middle',25.59097,-108.47070],
-              ['block4',25.590124,-108.4702804],
-              ['south',25.58935,-108.46988],
-              ['control-guasave',25.57452,-108.46875]
-            ];
             const results=[];
-            for(const [name,lat,lng] of points){
+            const cases=[
+              ['vicente-legacy','https://maps.google.com/maps?layer=c&cbll=25.5919436,-108.4711411&cbp=12,155,,0,0&source=embed&output=svembed'],
+              ['vicente-native','https://www.google.com/maps/embed?pb=!4v1!6m8!1m7!1s!2m2!1d25.5919436!2d-108.4711411!3f155!4f0!5f0.7820865974627469'],
+              ['control-pinned','https://www.google.com/maps/embed?pb=!4v1!6m8!1m7!1sVYJlO45SFB55JoB-a40Vlg!2m2!1d38.89512!2d-77.04020!3f0!4f0!5f0.7820865974627469'],
+              ['control-lat','https://maps.google.com/maps?layer=c&cbll=48.857832,2.295226&cbp=12,315,,0,0&source=embed&output=svembed']
+            ];
+            for(const [name,url] of cases){
               const page=await context.newPage();
               try{
-                await page.goto(`https://www.google.com/maps/@${lat},${lng},3a,75y,335h,90t/data=!3m1!1e1?hl=en`,{waitUntil:'domcontentloaded',timeout:40000});
-                const reject=page.getByRole('button',{name:'Reject all',exact:true});
-                if(await reject.count()) await reject.first().click();
-                await page.waitForTimeout(8000);
-                const result={name,lat,lng,url:page.url(),text:(await page.locator('body').innerText()).slice(0,3000)};
-                console.log('STREET RESULT',JSON.stringify(result));
-                results.push(result);
-                await page.screenshot({path:`${name}.png`});
-                if(name==='north'){
-                  await page.goto(`https://www.google.com/maps/embed?pb=!4v1!6m8!1m7!1s!2m2!1d${lat}!2d${lng}!3f155!4f0!5f0.7820865974627469`,{waitUntil:'domcontentloaded',timeout:40000});
-                  await page.waitForTimeout(8000);
-                  console.log('COORDINATE EMBED',(await page.locator('body').innerText()).slice(0,2000));
-                  await page.screenshot({path:'coordinate-embed.png'});
+                await page.goto('https://dh73.github.io/github-pages-game/',{waitUntil:'domcontentloaded',timeout:20000});
+                await page.setContent(`<html><body style="margin:0"><iframe title="street" style="width:100vw;height:100vh;border:0" src="${url.replaceAll('&','&amp;')}" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe></body></html>`);
+                await page.waitForTimeout(10000);
+                for(const frame of page.frames().slice(1)) {
+                  const result={name,url:frame.url(),text:(await frame.locator('body').innerText()).slice(0,2500)};
+                  results.push(result);console.log('EMBED RESULT',JSON.stringify(result));
                 }
-              }catch(e){console.log('STREET ERROR',name,e.message)}
+                await page.screenshot({path:`${name}.png`});
+              }catch(e){console.log('EMBED ERROR',name,e.message)}
               await page.close();
             }
-            fs.writeFileSync('panoramas.json',JSON.stringify(results,null,2));
             const page=await context.newPage();
-            try{
-              await page.goto('https://www.mapillary.com/app/?lat=25.59097&lng=-108.47070&z=18',{waitUntil:'domcontentloaded',timeout:40000});
-              await page.waitForTimeout(12000);
-              console.log('MAPILLARY',(await page.locator('body').innerText()).slice(0,2500));
-              await page.screenshot({path:'open-coverage.png'});
-            }catch(e){console.log('OPEN COVERAGE ERROR',e.message)}
+            await page.goto('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=48.857832%2C2.295226&heading=-45&pitch=38&fov=80',{waitUntil:'domcontentloaded',timeout:40000});
+            await page.waitForTimeout(10000);
+            console.log('DOCUMENTED CONTROL',page.url(),(await page.locator('body').innerText()).slice(0,2000));
+            await page.goto('https://www.google.com/maps/search/?api=1&query=25.5919436%2C-108.4711411&hl=en',{waitUntil:'domcontentloaded',timeout:40000});
+            await page.waitForTimeout(10000);
+            console.log('STREET SEARCH',page.url(),(await page.locator('body').innerText()).slice(0,6000));
+            await page.screenshot({path:'street-search.png'});
+            console.log('BUTTONS',JSON.stringify(await page.getByRole('button').evaluateAll(es=>es.map(e=>({label:e.getAttribute('aria-label'),text:e.innerText})))));
+            fs.writeFileSync('embeds.json',JSON.stringify(results));
             await browser.close();
           })();
           JS
           node probe.cjs
-          python - <<'PY'
-          import urllib.request,urllib.parse
-          url='https://api.openstreetcam.org/1.0/list/nearby-photos/'
-          try:
-            req=urllib.request.Request(url,data=urllib.parse.urlencode({'lat':25.59097,'lng':-108.47070,'radius':1000,'itemsPerPage':10}).encode())
-            with urllib.request.urlopen(req,timeout=25) as r: raw=r.read().decode()
-            print('KARTAVIEW NEARBY',raw[:10000]);open('kartaview.json','w').write(raw)
-          except Exception as e: print('KARTAVIEW ERROR',str(e))
-          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: street-check
           path: |
-            /tmp/street-check/*.json
+            /tmp/street-check/embeds.json
             /tmp/street-check/*.png
           retention-days: 2
