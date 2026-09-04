@@ -10,32 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Locate the real road
+      - name: Test the actual street and alternate open imagery
         run: |
           mkdir -p /tmp/street-check
-          python - <<'PY'
-          import urllib.request, urllib.parse, json
-          from pathlib import Path
-          out = Path('/tmp/street-check')
-          query = '[out:json][timeout:35];way["highway"](25.589,-108.477,25.597,-108.467);out geom;'
-          for base in ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']:
-            try:
-              req = urllib.request.Request(base, data=urllib.parse.urlencode({'data':query}).encode(), headers={'User-Agent':'Cuatrimoto92/1.0 street verification'})
-              with urllib.request.urlopen(req, timeout=50) as r: data=json.load(r)
-              (out/'roads.json').write_text(json.dumps(data))
-              for w in data.get('elements',[]):
-                print('ROAD', w['id'], json.dumps(w.get('tags',{}),ensure_ascii=False))
-                if any(n in w.get('tags',{}).get('name','').lower() for n in ['guerrero','pípila','pipila','obras']): print('GEOMETRY',json.dumps(w))
-              break
-            except Exception as e: print('ROAD SERVICE',str(e))
-          try:
-            url='https://api.openstreetcam.org/2.0/photo/?lat=25.59315805&lng=-108.47109297&radius=500&itemsPerPage=10'
-            with urllib.request.urlopen(url,timeout=25) as r: raw=r.read().decode()
-            print('OPEN IMAGERY',raw[:8000]); (out/'open-imagery.json').write_text(raw)
-          except Exception as e: print('OPEN IMAGERY SERVICE',str(e))
-          PY
-      - name: Test street panorama rendering
-        run: |
           cd /tmp/street-check
           npm init -y >/dev/null
           npm install --no-audit --no-fund playwright@1.55.0
@@ -45,40 +22,57 @@ jobs:
           const fs=require('fs');
           (async()=>{
             const browser=await chromium.launch({headless:true});
-            const page=await browser.newPage({viewport:{width:1280,height:800},locale:'en-US'});
-            let point={lat:25.59315805,lng:-108.47109297};
-            try {
-              const data=JSON.parse(fs.readFileSync('roads.json'));
-              const roads=data.elements.filter(w=>/guerrero/i.test(w.tags?.name||''));
-              console.log('TARGET ROADS',JSON.stringify(roads));
-              if(roads.length) point=roads[0].geometry[Math.floor(roads[0].geometry.length/2)];
-            } catch(e){console.log(e.message)}
-            fs.writeFileSync('point.json',JSON.stringify(point));
-            console.log('POINT',JSON.stringify(point));
-            const url=`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${point.lat},${point.lon??point.lng}&heading=0&pitch=0&fov=90&hl=en`;
-            try {
-              await page.goto(url,{waitUntil:'domcontentloaded',timeout:60000});
-              const reject=page.getByRole('button',{name:'Reject all',exact:true});
-              if(await reject.count()) await reject.first().click();
-              await page.waitForTimeout(16000);
-              console.log('PANORAMA URL',page.url());
-              console.log('PANORAMA TEXT',(await page.locator('body').innerText()).slice(0,7000));
-              await page.screenshot({path:'street.png'});
-              fs.writeFileSync('street.html',await page.content());
-              const id=page.url().match(/!1s([^!/?]+)/)?.[1];
-              if(id){
-                fs.writeFileSync('panorama.json',JSON.stringify({point,id,url:page.url()}));
-                const embed=`https://www.google.com/maps/embed?pb=!4v1!6m8!1m7!1s${id}!2m2!1d${point.lat}!2d${point.lon??point.lng}!3f0!4f0!5f0.7820865974627469`;
-                await page.goto(embed,{waitUntil:'domcontentloaded',timeout:60000});
-                await page.waitForTimeout(10000);
-                console.log('EMBED TEXT',(await page.locator('body').innerText()).slice(0,4000));
-                await page.screenshot({path:'embed.png'});
-              }
-            }catch(e){console.log('PANORAMA ERROR',e.message)}
+            const context=await browser.newContext({viewport:{width:1280,height:800},locale:'en-US'});
+            const points=[
+              ['north',25.59280,-108.47156],
+              ['block2',25.59194,-108.47114],
+              ['middle',25.59097,-108.47070],
+              ['block4',25.590124,-108.4702804],
+              ['south',25.58935,-108.46988],
+              ['control-guasave',25.57452,-108.46875]
+            ];
+            const results=[];
+            for(const [name,lat,lng] of points){
+              const page=await context.newPage();
+              try{
+                await page.goto(`https://www.google.com/maps/@${lat},${lng},3a,75y,335h,90t/data=!3m1!1e1?hl=en`,{waitUntil:'domcontentloaded',timeout:40000});
+                const reject=page.getByRole('button',{name:'Reject all',exact:true});
+                if(await reject.count()) await reject.first().click();
+                await page.waitForTimeout(8000);
+                const result={name,lat,lng,url:page.url(),text:(await page.locator('body').innerText()).slice(0,3000)};
+                console.log('STREET RESULT',JSON.stringify(result));
+                results.push(result);
+                await page.screenshot({path:`${name}.png`});
+                if(name==='north'){
+                  await page.goto(`https://www.google.com/maps/embed?pb=!4v1!6m8!1m7!1s!2m2!1d${lat}!2d${lng}!3f155!4f0!5f0.7820865974627469`,{waitUntil:'domcontentloaded',timeout:40000});
+                  await page.waitForTimeout(8000);
+                  console.log('COORDINATE EMBED',(await page.locator('body').innerText()).slice(0,2000));
+                  await page.screenshot({path:'coordinate-embed.png'});
+                }
+              }catch(e){console.log('STREET ERROR',name,e.message)}
+              await page.close();
+            }
+            fs.writeFileSync('panoramas.json',JSON.stringify(results,null,2));
+            const page=await context.newPage();
+            try{
+              await page.goto('https://www.mapillary.com/app/?lat=25.59097&lng=-108.47070&z=18',{waitUntil:'domcontentloaded',timeout:40000});
+              await page.waitForTimeout(12000);
+              console.log('MAPILLARY',(await page.locator('body').innerText()).slice(0,2500));
+              await page.screenshot({path:'open-coverage.png'});
+            }catch(e){console.log('OPEN COVERAGE ERROR',e.message)}
             await browser.close();
           })();
           JS
           node probe.cjs
+          python - <<'PY'
+          import urllib.request,urllib.parse
+          url='https://api.openstreetcam.org/1.0/list/nearby-photos/'
+          try:
+            req=urllib.request.Request(url,data=urllib.parse.urlencode({'lat':25.59097,'lng':-108.47070,'radius':1000,'itemsPerPage':10}).encode())
+            with urllib.request.urlopen(req,timeout=25) as r: raw=r.read().decode()
+            print('KARTAVIEW NEARBY',raw[:10000]);open('kartaview.json','w').write(raw)
+          except Exception as e: print('KARTAVIEW ERROR',str(e))
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -86,5 +80,4 @@ jobs:
           path: |
             /tmp/street-check/*.json
             /tmp/street-check/*.png
-            /tmp/street-check/street.html
           retention-days: 2
