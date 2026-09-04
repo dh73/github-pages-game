@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 400" fill="none">
+ <defs>
+  <linearGradient id="rubber" x1="0" x2="1"><stop stop-color="#090b0d"/><stop offset=".38" stop-color="#343a3c"/><stop offset=".7" stop-color="#161a1c"/><stop offset="1" stop-color="#030405"/></linearGradient>
+  <linearGradient id="metal" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#e4e8e6"/><stop offset=".24" stop-color="#4b5357"/><stop offset=".45" stop-color="#a2abae"/><stop offset=".7" stop-color="#20282b"/><stop offset="1" stop-color="#080f12"/></linearGradient>
+  <linearGradient id="orange" x1="0" y1="0" x2=".2" y2="1"><stop stop-color="#ffc371"/><stop offset=".22" stop-color="#f18922"/><stop offset=".6" stop-color="#b54c0f"/><stop offset="1" stop-color="#54220b"/></linearGradient>
+  <linearGradient id="tank" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c5cecd"/><stop offset=".45" stop-color="#4c595d"/><stop offset="1" stop-color="#1c2427"/></linearGradient>
+  <linearGradient id="jersey" x1="0" y1="0" x2=".85" y2="1"><stop stop-color="#e5dfcb"/><stop offset=".4" stop-color="#a29a81"/><stop offset=".7" stop-color="#d2c6a7"/><stop offset="1" stop-color="#655f52"/></linearGradient>
+  <linearGradient id="denim" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#364e5d"/><stop offset=".5" stop-color="#213340"/><stop offset="1" stop-color="#0c1923"/></linearGradient>
+  <linearGradient id="helmet" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#f4f0dd"/><stop offset=".3" stop-color="#e1dac0"/><stop offset=".6" stop-color="#a99e82"/><stop offset="1" stop-color="#4c4d44"/></linearGradient>
+  <pattern id="tread" width="26" height="24" patternUnits="userSpaceOnUse"><path d="m-3 1 16 6 16-6m-32 16 16 6 16-6" stroke="#525759" stroke-width="4"/><path d="m-3 6 16 6 16-6" stroke="#000" stroke-width="3"/></pattern>
+  <radialGradient id="shadow"><stop stop-color="#000" stop-opacity=".63"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+ </defs>
+ <ellipse cx="210" cy="365" rx="193" ry="34" fill="url(#shadow)"/>
+ <g stroke="#080e11" stroke-width="3">
+  <rect x="85" y="182" width="49" height="88" rx="19" fill="url(#rubber)"/>
+  <rect x="287" y="182" width="49" height="88" rx="19" fill="url(#rubber)"/>
+  <rect x="85" y="182" width="49" height="88" rx="19" fill="url(#tread)" opacity=".65"/>
+  <rect x="287" y="182" width="49" height="88" rx="19" fill="url(#tread)" opacity=".65"/>
+  <path d="m117 233 65 40h57l63-40-24-75H142z" fill="#131b1e"/>
+  <path d="m128 173 11-19h141l11 19-28 41H153z" fill="url(#orange)"/>
+  <path d="m148 177 13-42h97l14 42-35 93h-54z" fill="url(#tank)"/>
+ </g>
+ <g stroke="url(#metal)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+  <path d="m129 322 38-71 43 66 43-66 38 71"/>
+  <path d="M106 328h208M141 344l47-60h44l46 60M158 353h104"/>
+  <path d="m161 247-18 68m116-68 18 68"/>
+ </g>
+ <g stroke="#d68720" stroke-width="3"><path d="m150 274 13 5-16 5 13 5-16 5 13 5-16 5 13 5m116-35-13 5 16 5-13 5 16 5-13 5 16 5-13 5"/></g>
+ <path d="m182 271-11 45 18 32h47l16-32-16-45z" fill="#192022" stroke="#758285" stroke-width="3"/>
+ <path d="M189 297h43m-42 8h40m-39 8h38m-37 8h36" stroke="#0b1012" stroke-width="4"/>
+ <path d="m128 305 26-50 23 13-17 49zM292 305l-26-50-23 13 17 49z" fill="url(#metal)" stroke="#10171a" stroke-width="3"/>
+ <path d="m133 135 31-13 46 7 46-7 31 13" stroke="#111c21" stroke-width="8" stroke-linecap="round"/>
+ <path d="m148 129-32-16-18 2m174 14 32-16 18 2" stroke="url(#metal)" stroke-width="5" stroke-linecap="round"/>
+ <path d="m94 114 29 12m204-12-29 12" stroke="#151b1e" stroke-width="10" stroke-linecap="round"/>
+ <path d="m135 239 10-39 18-29 47 15 47-15 18 29 10 39-28 18-24-47h-46l-24 47z" fill="url(#denim)" stroke="#101c24" stroke-width="3"/>
+ <path d="m158 202-8 42m112-42 8 42M181 209l-14 32m72-32 14 32" stroke="#7690a0" stroke-opacity=".4" stroke-width="2"/>
+ <path d="m137 233 21 7 8 21-12 17-24-4zM283 233l-21 7-8 21 12 17 24-4z" fill="#3b2c20" stroke="#120e0c" stroke-width="3"/>
+ <path d="m130 267 25 4m-22-16 24 5m133 7-25 4m22-16-24 5" stroke="#6f5640" stroke-width="3"/>
+ <path d="m174 80-26 12-31 32 16 17 30-20-6 55 26 23h54l26-23-6-55 30 20 16-17-31-32-26-12z" fill="url(#jersey)" stroke="#484d43" stroke-width="3"/>
+ <path d="m149 94 17 20-5 26m110-46-17 20 5 26m-84 33 15 11h40l15-11" stroke="#625f50" stroke-width="2"/>
+ <path d="m120 125-8 4 7 13 14-1m167-16 8 4-7 13-14-1" fill="#513d2e" stroke="#161a16" stroke-width="4"/>
+ <path d="M174 95h72v8h-72z" fill="#3a443a"/>
+ <text x="210" y="125" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="900" letter-spacing="2" fill="#303b32">SINALOA</text>
+ <text x="210" y="163" text-anchor="middle" font-family="Arial,sans-serif" font-size="38" font-weight="900" fill="#354536">92</text>
+ <text x="210" y="179" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="700" letter-spacing="2" fill="#354536">GUASAVE</text>
+ <path d="m183 75 7 20h40l7-20" fill="#544235"/>
+ <path d="M174 50q0-39 36-39t36 39l-6 28-19 12h-22l-19-12z" fill="url(#helmet)" stroke="#414944" stroke-width="3"/>
+ <path d="M185 24q25-17 50 2m-59 21 18-8m50 8-18-8" stroke="#fff9e4" stroke-opacity=".6" stroke-width="3"/>
+ <path d="m198 13 4 43h16l4-43" fill="#d47327"/>
+ <path d="m176 59 18 13h32l18-13-5 19-18 12h-22l-19-12z" fill="#222d2b"/>
+ <path d="M194 77h32" stroke="#080e0e" stroke-width="6"/>
+ <g stroke="#101719" stroke-width="4">
+  <rect x="46" y="264" width="80" height="108" rx="25" fill="url(#rubber)"/>
+  <rect x="294" y="264" width="80" height="108" rx="25" fill="url(#rubber)"/>
+  <rect x="51" y="268" width="68" height="99" rx="20" fill="url(#tread)" opacity=".85"/>
+  <rect x="301" y="268" width="68" height="99" rx="20" fill="url(#tread)" opacity=".85"/>
+  <path d="m61 269 14-39 70-13 41 14h48l41-14 70 13 14 39-60 8-48-27h-82l-48 27z" fill="url(#orange)"/>
+ </g>
+ <path d="m77 232 65-10 45 14h46l45-14 65 10-48 12-47 8h-75l-48-8z" fill="#252d30"/>
+ <path d="m69 253 54-8 47 13h80l47-13 54 8" stroke="#edaa62" stroke-width="3"/>
+ <g stroke="url(#metal)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+  <path d="m106 238 34-31h140l34 31-43 25H149z"/>
+  <path d="m127 229 166 0m-145-12h123m-113 18 6-24m27 27 2-27m34 27-2-27m31 27-6-27"/>
+ </g>
+ <path d="m168 270 12 34h60l12-34z" fill="url(#tank)" stroke="#111a1d" stroke-width="3"/>
+ <path d="M180 278h60l-5 10h-50z" fill="#cd302c" stroke="#601e1b" stroke-width="2"/>
+ <path d="M184 280h51" stroke="#ff7462" stroke-width="2"/>
+ <rect x="190" y="298" width="40" height="23" rx="3" fill="#e6e3d1" stroke="#263133" stroke-width="2"/>
+ <text x="210" y="307" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="6" fill="#536457">SINALOA</text>
+ <text x="210" y="317" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="10" fill="#263c39">C-92</text>
+ <path d="m133 336 21 14h112l21-14" stroke="url(#metal)" stroke-width="9" stroke-linecap="round"/>
+ <ellipse cx="271" cy="316" rx="13" ry="10" fill="url(#metal)" stroke="#101b21" stroke-width="3"/>
+ <ellipse cx="271" cy="316" rx="7" ry="5" fill="#060c0f"/>
+</svg>

@@ -1,0 +1,87 @@
+name: Mobile street game
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check game syntax
+        run: node --check game.js
+      - name: Play on phone and tablet viewports with live street imagery
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.55.0 >/dev/null
+          mkdir -p /tmp/game-shots
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/game-http.log 2>&1 &
+          cat > /tmp/game-check.cjs <<'JS'
+          const {chromium}=require(process.cwd()+'/node_modules/playwright');
+          const assert=require('node:assert/strict');
+          (async()=>{
+            const browser=await chromium.launch({channel:'chrome',headless:true});
+            for(const [name,width,height] of [['phone',390,844],['landscape',844,390],['tablet',834,1112]]){
+              const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true,deviceScaleFactor:1});
+              const page=await context.newPage();const errors=[];
+              page.on('pageerror',e=>{if((e.stack||'').includes('game.js'))errors.push(String(e))});
+              try{
+                await page.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded'});
+                await page.waitForFunction(()=>!document.getElementById('start').disabled,{},{timeout:40000});
+                await page.waitForTimeout(3500);
+                const initial=await page.locator('#views iframe.visible').getAttribute('src');
+                const street=await page.frameLocator('#views iframe.visible').locator('body').innerText();
+                console.log('REAL STREET',name,street.slice(0,1000));
+                assert.match(street,/Vicente Guerrero|P[ií]pila/i);
+                await page.locator('#start').tap();
+                const gas=await page.locator('[data-key=gas]').boundingBox();
+                const right=await page.locator('[data-key=right]').boundingBox();
+                const cdp=await context.newCDPSession(page);
+                const point=(r,id)=>({x:r.x+r.width/2,y:r.y+r.height/2,id});
+                await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(gas,1),point(right,2)]});
+                await page.waitForTimeout(900);
+                await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+                await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(gas,1)]});
+                await page.waitForTimeout(8000);
+                await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+                await page.waitForTimeout(1000);
+                const state=await page.locator('#game').evaluate(e=>({...e.dataset}));
+                console.log('PLAYED',name,JSON.stringify(state));
+                assert.ok(Number(state.distance)>17,JSON.stringify(state));
+                assert.ok(Number(state.photo)>=1,JSON.stringify(state));
+                assert.notEqual(await page.locator('#views iframe.visible').getAttribute('src'),initial);
+                assert.equal(await page.locator('#map,.leaflet-container').count(),0);
+                assert.equal(await page.locator('#views iframe').count(),2);
+                assert.equal(await page.locator('.drive.active').count(),0);
+                assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+                for(const button of await page.locator('.drive').all()){
+                  const r=await button.boundingBox();assert.ok(r.width>=44&&r.height>=44&&r.x>=0&&r.y+r.height<=height+1);
+                }
+                await page.screenshot({path:`/tmp/game-shots/${name}.png`});
+                await page.locator('#pause').tap();await page.waitForTimeout(200);
+                const stopped=await page.locator('#game').getAttribute('data-distance');
+                await page.waitForTimeout(900);
+                assert.equal(await page.locator('#game').getAttribute('data-distance'),stopped);
+                await page.locator('#resume').tap();
+                assert.equal(await page.locator('#game').getAttribute('data-status'),'playing');
+                assert.deepEqual(errors,[]);
+                console.log('PASS',name,'live imagery, multi-touch, movement, pause, layout');
+              }catch(e){await page.screenshot({path:`/tmp/game-shots/${name}-failure.png`});throw e}
+              finally{await context.close()}
+            }
+            const page=await browser.newPage();
+            await page.goto('https://dh73.github.io/github-pages-game/',{waitUntil:'domcontentloaded'});
+            console.log('PAGES TITLE',await page.title());
+            await page.screenshot({path:'/tmp/game-shots/published.png'});
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node /tmp/game-check.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: game-browser-check
+          path: /tmp/game-shots/*.png
+          retention-days: 2

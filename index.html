@@ -3,41 +3,57 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#17130c">
-  <title>Cuatrimoto 92 — Guasave</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#151b1d">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Cuatrimoto 92: un recorrido por Vicente Guerrero, Ayuntamiento 92, Guasave.">
+  <title>Cuatrimoto 92 · Guasave</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23151b1d'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-family='sans-serif' font-size='36' font-weight='900' fill='%23ffad4d'%3E92%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css?v=street-1">
+  <script src="game.js?v=street-1" defer></script>
 </head>
 <body>
   <main id="game">
-    <div id="map" aria-label="Mapa jugable de Ayuntamiento 92, Guasave"></div>
-    <div class="sun-haze"></div>
+    <header class="header">
+      <div class="brand"><span class="badge">92</span><div><h1>CUATRIMOTO</h1><p>GUASAVE, SINALOA</p></div></div>
+      <div class="location"><span class="location-dot"></span><div><strong>Vicente Guerrero</strong><small>AYUNTAMIENTO 92</small></div></div>
+      <nav aria-label="Opciones del juego">
+        <button id="sound" class="icon-button" aria-label="Activar sonido" title="Sonido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Zm5 4 5 6m0-6-5 6"/></svg></button>
+        <button id="pause" class="icon-button" aria-label="Pausar" title="Pausa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
+        <button id="fullscreen" class="icon-button" aria-label="Pantalla completa" title="Pantalla completa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button>
+      </nav>
+    </header>
 
-    <section class="top-hud" aria-live="polite">
-      <div>
-        <div class="eyebrow">GUASAVE · SINALOA</div>
-        <h1>CUATRIMOTO 92</h1>
-        <div class="street">VICENTE GUERRERO / PÍPILA</div>
+    <section id="street" class="street" aria-label="Recorrido a nivel de calle">
+      <div id="views" class="views"></div>
+      <canvas id="course" aria-hidden="true"></canvas>
+      <div class="ride-stats"><span><b id="collected">0</b><small> / 8 SELLOS</small></span><span id="clock">0:00</span></div>
+      <div id="rider" aria-hidden="true"><img src="quad.svg" alt="" draggable="false"></div>
+      <div id="toast" class="toast" role="status"></div>
+      <div id="loading" class="loading" role="status"><span class="spinner"></span><span>Cargando la calle…</span></div>
+      <div id="intro" class="overlay">
+        <div class="intro-card">
+          <span class="overline">UN PASEO POR LA 92</span>
+          <h2>La calle.<br>Tu cuatrimoto.</h2>
+          <p>Recorre Vicente Guerrero, recoge los ocho sellos y llega al final del tramo.</p>
+          <div class="control-hint"><span>← →<small>DIRIGE</small></span><span>ACELERA<small>MANTÉN PRESIONADO</small></span></div>
+          <button id="start" class="primary" disabled>Preparando recorrido…</button>
+          <small class="keyboard-hint">También: WASD o flechas · espacio para frenar</small>
+        </div>
       </div>
-      <div class="meters">
-        <div><span id="speed">0</span><small>km/h</small></div>
-        <div><span id="checkpoints">0/6</span><small>puntos</small></div>
-      </div>
+      <div id="pause-screen" class="overlay" hidden><div class="intro-card compact"><span class="overline">CUATRIMOTO 92</span><h2>Una pausa.</h2><button id="resume" class="primary">Seguir rodando</button><button id="restart-pause" class="secondary">Volver al inicio</button></div></div>
+      <div id="finish" class="overlay" hidden><div class="intro-card compact"><span class="overline">TRAMO COMPLETADO</span><h2>¡Llegaste!</h2><p id="result"></p><button id="restart" class="primary">Otra vuelta</button></div></div>
+      <div id="error-screen" class="overlay" hidden><div class="intro-card compact"><span class="overline">SIN CONEXIÓN CON LA CALLE</span><h2>No cargó la vista.</h2><p>Revisa tu conexión y vuelve a intentarlo.</p><button id="retry" class="primary">Reintentar</button></div></div>
     </section>
 
-    <div id="message" class="message">Sigue la calle y pasa por los puntos amarillos</div>
-
-    <div class="desktop-help">W / ↑ acelera · S / ↓ frena · A D / ← → gira · R reinicia</div>
-
-    <section class="touch-controls" aria-label="Controles táctiles">
-      <button class="control left" data-key="left" aria-label="Girar a la izquierda">◀</button>
-      <button class="control gas" data-key="gas" aria-label="Acelerar">▲</button>
-      <button class="control brake" data-key="brake" aria-label="Frenar">▼</button>
-      <button class="control right" data-key="right" aria-label="Girar a la derecha">▶</button>
-    </section>
+    <footer class="dashboard">
+      <div class="route-note"><span>RECORRIDO FOTOGRÁFICO</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Ruta © OpenStreetMap</a></div>
+      <div class="trip"><span id="distance">0 m</span><div class="trip-track"><div id="progress"></div></div><span id="remaining">META</span></div>
+      <div class="driving-controls">
+        <div class="steering"><button class="drive steer" data-key="left" aria-label="Girar a la izquierda">❮</button><button class="drive steer" data-key="right" aria-label="Girar a la derecha">❯</button></div>
+        <div class="speedometer"><div><b id="speed">0</b><span>km/h</span></div><small id="gear">N</small></div>
+        <div class="pedals"><button class="drive brake" data-key="brake" aria-label="Frenar"><span class="pedal-bars">▰ ▰</span><small>FRENO</small></button><button class="drive gas" data-key="gas" aria-label="Acelerar"><span class="pedal-bars">▰ ▰ ▰</span><small>ACELERA</small></button></div>
+      </div>
+    </footer>
   </main>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="game.js"></script>
 </body>
 </html>
