@@ -30,8 +30,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install browser
         run: |
-          python3 -m pip install playwright==1.55.0
-          python3 -m playwright install --with-deps ${{ matrix.engine }}
+          python3 -m pip install --quiet playwright==1.55.0
+          python3 -m playwright install --with-deps ${{ matrix.engine }} > /tmp/browser-install.log 2>&1 || { tail -80 /tmp/browser-install.log; exit 1; }
       - name: Phone and tablet controls, progression, recovery and replay
         run: python3 .github/tests/browser.py --engine ${{ matrix.engine }}
       - uses: actions/upload-artifact@v4
@@ -48,8 +48,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install browser
         run: |
-          python3 -m pip install playwright==1.55.0
-          python3 -m playwright install --with-deps chromium
+          python3 -m pip install --quiet playwright==1.55.0
+          python3 -m playwright install --with-deps chromium > /tmp/browser-install.log 2>&1 || { tail -80 /tmp/browser-install.log; exit 1; }
       - name: Complete the challenge against real Google street panoramas
         run: python3 .github/tests/browser.py --live
       - uses: actions/upload-artifact@v4
@@ -58,3 +58,15 @@ jobs:
           name: real-street-and-published-game
           path: /tmp/cuatrimoto-shots/*.png
           retention-days: 3
+  photo-selection:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install street browser
+        run: |
+          python3 -m pip install --quiet playwright==1.55.0
+          python3 -m playwright install --with-deps chromium > /tmp/browser-install.log 2>&1 || { tail -80 /tmp/browser-install.log; exit 1; }
+      - name: Verify native panorama positions and names
+        run: python3 .github/tests/street-audit.py
