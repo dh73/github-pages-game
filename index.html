@@ -3,10 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Game</title>
+  <title>GitHub Pages Game Demo</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <main class="game-shell">
+    <header>
+      <h1>Game Demo</h1>
+      <p>Move with arrow keys / WASD. On touch devices, tap where you want to move.</p>
+    </header>
+    <canvas id="game" width="900" height="520" aria-label="Playable game demo"></canvas>
+    <div class="hud">
+      <span>Score: <strong id="score">0</strong></span>
+      <button id="reset" type="button">Reset</button>
+    </div>
+  </main>
   <script src="game.js"></script>
 </body>
 </html>
