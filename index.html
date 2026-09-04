@@ -1,23 +1,43 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GitHub Pages Game Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17130c">
+  <title>Cuatrimoto 92 — Guasave</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="game-shell">
-    <header>
-      <h1>Game Demo</h1>
-      <p>Move with arrow keys / WASD. On touch devices, tap where you want to move.</p>
-    </header>
-    <canvas id="game" width="900" height="520" aria-label="Playable game demo"></canvas>
-    <div class="hud">
-      <span>Score: <strong id="score">0</strong></span>
-      <button id="reset" type="button">Reset</button>
-    </div>
+  <main id="game">
+    <div id="map" aria-label="Mapa jugable de Ayuntamiento 92, Guasave"></div>
+    <div class="sun-haze"></div>
+
+    <section class="top-hud" aria-live="polite">
+      <div>
+        <div class="eyebrow">GUASAVE · SINALOA</div>
+        <h1>CUATRIMOTO 92</h1>
+        <div class="street">VICENTE GUERRERO / PÍPILA</div>
+      </div>
+      <div class="meters">
+        <div><span id="speed">0</span><small>km/h</small></div>
+        <div><span id="checkpoints">0/6</span><small>puntos</small></div>
+      </div>
+    </section>
+
+    <div id="message" class="message">Sigue la calle y pasa por los puntos amarillos</div>
+
+    <div class="desktop-help">W / ↑ acelera · S / ↓ frena · A D / ← → gira · R reinicia</div>
+
+    <section class="touch-controls" aria-label="Controles táctiles">
+      <button class="control left" data-key="left" aria-label="Girar a la izquierda">◀</button>
+      <button class="control gas" data-key="gas" aria-label="Acelerar">▲</button>
+      <button class="control brake" data-key="brake" aria-label="Frenar">▼</button>
+      <button class="control right" data-key="right" aria-label="Girar a la derecha">▶</button>
+    </section>
   </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
