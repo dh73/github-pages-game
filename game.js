@@ -400,7 +400,14 @@
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     if (keyboard[key]) input[keyboard[key]].delete(`key-${key}`);
   });
-  window.addEventListener('blur', () => { releaseAll(); pause(); });
+  window.addEventListener('blur', () => {
+    releaseAll();
+    // Focusing a native panorama is not leaving the game. In particular, a
+    // mobile tap on Resume can return focus to the iframe below the overlay.
+    requestAnimationFrame(() => {
+      if (document.hidden || (!document.hasFocus() && document.activeElement?.tagName !== 'IFRAME')) pause();
+    });
+  });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { releaseAll(); pause(); } });
   window.addEventListener('offline', fail);
   $('start').addEventListener('click', start);
