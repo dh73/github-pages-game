@@ -1,4 +1,4 @@
-import argparse,asyncio,functools,http.server,json,math,os,pathlib,struct,threading,time,wave,io
+import argparse,asyncio,functools,http.server,json,math,os,pathlib,re,struct,threading,time,wave,io
 from playwright.async_api import async_playwright
 parser=argparse.ArgumentParser();parser.add_argument('--engine',default='chromium',choices=['chromium','webkit']);parser.add_argument('--live',action='store_true');args=parser.parse_args()
 root=pathlib.Path(__file__).resolve().parents[2];shots=pathlib.Path('/tmp/cuatrimoto-shots');shots.mkdir(exist_ok=True)
@@ -34,7 +34,6 @@ async def run():
     diag=await page.evaluate('cuatrimoto.diagnostics()');assert diag['audio']['state']=='running',diag
     assert diag['audio']['rms']>.001,diag
     assert diag['audio']['peak']<.99,diag
-    # Simultaneous controls, cancel, camera, engine mute and resume.
     for k,i in [('gas',1),('right',2)]:await page.locator(f'[data-key={k}]').dispatch_event('pointerdown',{'pointerId':i,'pointerType':'touch','buttons':1})
     await page.wait_for_function("Number(document.getElementById('game').dataset.lane)>.12 && Number(document.getElementById('game').dataset.speed)>0",timeout=20000)
     st=await state(page);assert float(st['speed'])>0 and float(st['lane'])>.05,st
@@ -76,11 +75,17 @@ async def run():
      print('OFFLINE COMPLETE',args.engine,json.dumps(st),flush=True)
     await page.screenshot(path=str(shots/f'{args.engine}-{width}-drive.png'))
     print('RENDER',args.engine,width,json.dumps(await page.evaluate('cuatrimoto.diagnostics()')),flush=True)
-    # Optional music UI: local audio is decoded and played, not a silent placeholder.
     await page.locator('#radio-toggle').tap();await page.wait_for_timeout(100)
     assert await page.locator('#radio-track option').count()==5
     assert await page.locator('#radio-player iframe').count()==0
     assert (await state(page))['music']=='offline'
+    if args.engine=='webkit':
+     # Isolated probe in run 33964564450 demonstrated that this WebKit's
+     # offline emulation rejects even FileReader(new Blob(['text'])).
+     # The complete ride/audio assertions ABOVE still use real offline mode.
+     # For file import, block every HTTP(S) request while leaving local I/O enabled.
+     await context.route(re.compile(r'^https?://'),lambda route:route.abort())
+     await context.set_offline(False)
     wav=io.BytesIO()
     with wave.open(wav,'wb') as w:
      w.setparams((1,2,24000,0,'NONE','not compressed'));w.writeframes(b''.join(struct.pack('<h',int(math.sin(i/24000*440*math.tau)*1000)) for i in range(24000*3)))
@@ -94,8 +99,9 @@ async def run():
     media=await page.locator('#local-audio').evaluate('(e)=>({time:e.currentTime,paused:e.paused,ready:e.readyState})');assert media['time']>0 and not media['paused'] and media['ready']>=2,media
     await page.locator('#radio-close').tap();assert await page.locator('iframe').count()==0
     assert await page.locator('#local-audio').evaluate('(e)=>e.paused')
+    assert not any(re.match(r'^https?://',url) for url in requests[count:]),requests[count:]
     assert not errors,errors
-    print('PASS',args.engine,width,height,'audio RMS',diag['audio']['rms'],'route offline',flush=True)
+    print('PASS',args.engine,width,height,'audio RMS',diag['audio']['rms'],'route offline; local media without HTTP',flush=True)
    except Exception:
     print('FAILED',args.engine,width,'STATE',await state(page),'ERRORS',errors,flush=True)
     print('GAME ERROR',await page.locator('#error-message').text_content(),'RADIO',await page.locator('#radio-note').text_content(),flush=True)
