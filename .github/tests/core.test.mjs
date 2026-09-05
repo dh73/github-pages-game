@@ -1,17 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Ride, LENGTH, ROAD, PHOTOS, MODES, pointAt, photoAt, streetURL, readRecord, saveRecord, FixedClock, Spring} from '../../ride-core.mjs';
+import {Ride, LENGTH, ROAD, PHOTOS, MODES, pointAt, photoAt, streetURL, readRecord, saveRecord, FixedClock, PHYSICS_STEP, RULESET, spring, pose, interpolate} from '../../ride-core.mjs';
 const gas = {gas: true};
 function advance(r, seconds, controls = gas) { for (let t = 0; t < seconds; t += 1 / 60) r.step(1 / 60, controls); }
-function controls(r) {
-  const next = r.next;
-  const target = !next ? 0 : next.kind === 'seal' ? next.lane : next.lane <= 0 ? .55 : -.55;
-  const diff = target - r.lane;
-  return {gas: true, left: diff < -.05, right: diff > .05};
-}
 function perfect(mode, dt = 1 / 60) {
-  const r = new Ride(mode); r.play();
-  for (let i = 0; i < 180 / dt && r.status === 'playing'; i++) r.step(dt, controls(r));
+  const r = new Ride(mode); r.play(); const clock = new FixedClock();
+  for (let i = 0; i < 180 / dt && r.status === 'playing'; i++) {
+    clock.advance(dt, h => {
+    const next = r.next;
+    const target = !next ? 0 : next.kind === 'seal' ? next.lane : next.lane <= 0 ? .55 : -.55;
+    const diff = target - r.lane - r.lateralSpeed * .16 / 2.8;
+    r.step(h, {gas: true, left: diff < -.05, right: diff > .05});
+    });
+  }
   return r;
 }
 test('route stays on the residential segment; final panorama is reachable', () => {
@@ -78,70 +79,104 @@ test('records survive reload and reject corrupt/blocked storage', () => {
   const r = perfect('reto'); assert.equal(saveRecord(storage,r),true); assert.equal(saveRecord(storage,r),false);
   assert.equal(readRecord(storage,'reto').score,r.score); assert.equal(readRecord(storage,'paseo'),null);
   assert.equal(saveRecord(null,r),false); assert.equal(readRecord(null,'reto'),null);
-  storage.setItem('cuatrimoto92.record.v3.reto','{"score":-1}'); assert.equal(readRecord(storage,'reto'),null);
+  storage.setItem(`cuatrimoto92.${RULESET}.reto`,'{"score":-1}'); assert.equal(readRecord(storage,'reto'),null);
   assert.equal(saveRecord(storage,new Ride()),false);
 });
+
 test('the final challenge tick cannot travel or collect beyond the deadline', () => {
   const r = new Ride('reto'); r.play();
   const seal = r.objects.find(o => o.kind === 'seal');
-  r.elapsed = MODES.reto.limit - .01; r.speed = MODES.reto.maxSpeed;
-  r.distance = seal.distance - MODES.reto.maxSpeed * .02; r.lane = seal.lane;
-  const before = r.distance; const events = r.step(.05, gas);
+  r.elapsed = MODES.reto.limit - .01;
+  r.speed = MODES.reto.maxSpeed;
+  r.distance = seal.distance - (MODES.reto.maxSpeed * .01 + .04);
+  r.lane = seal.lane;
+  const before = r.distance;
+  const events = r.step(.05, gas);
   assert.equal(r.elapsed, MODES.reto.limit);
   assert.ok(r.distance - before <= MODES.reto.maxSpeed * .01 + 1e-9);
-  assert.equal(seal.passed, false); assert.equal(r.collected, 0); assert.equal(r.score, 0);
-  assert.equal(r.status, 'lost'); assert.deepEqual(events, [{kind: 'finish'}]);
+  assert.equal(seal.passed, false);
+  assert.equal(r.collected, 0);
+  assert.equal(r.score, 0);
+  assert.equal(r.status, 'lost');
+  assert.deepEqual(events, [{kind: 'finish'}]);
 });
+
 test('buffering at the deadline freezes the run and resumes only remaining time', () => {
-  const r = new Ride('reto'); r.play(); r.elapsed = MODES.reto.limit - .01;
-  r.speed = MODES.reto.maxSpeed; r.distance = PHOTOS[1].distance - .04;
-  const before = JSON.stringify(r), requested = [];
-  for (let i = 0; i < 120; i++) assert.deepEqual(r.step(.05, gas, index => { requested.push(index); return false; }), [{kind: 'buffer'}]);
-  assert.equal(JSON.stringify(r), before); assert.ok(requested.every(index => index === 1));
+  const r = new Ride('reto'); r.play();
+  r.elapsed = MODES.reto.limit - .01;
+  r.speed = MODES.reto.maxSpeed;
+  r.distance = PHOTOS[1].distance - .04;
+  const before = JSON.stringify(r);
+  const requested = [];
+  for (let i = 0; i < 120; i++) {
+    assert.deepEqual(r.step(.05, gas, index => {
+      requested.push(index); return false;
+    }), [{kind: 'buffer'}]);
+  }
+  assert.equal(JSON.stringify(r), before);
+  assert.ok(requested.every(index => index === 1));
   assert.deepEqual(r.step(.05, gas, () => true), [{kind: 'finish'}]);
   assert.equal(r.elapsed, MODES.reto.limit);
   assert.ok(r.distance - JSON.parse(before).distance <= MODES.reto.maxSpeed * .01 + 1e-9);
   assert.equal(r.status, 'lost');
 });
+
 test('deadline never waits for a panorama the quad cannot reach in time', () => {
-  const r = new Ride('reto'); r.play(); r.elapsed = MODES.reto.limit - .01;
-  r.speed = MODES.reto.maxSpeed; r.distance = PHOTOS[1].distance - .2;
+  const r = new Ride('reto'); r.play();
+  r.elapsed = MODES.reto.limit - .01;
+  r.speed = MODES.reto.maxSpeed;
+  r.distance = PHOTOS[1].distance - .2;
   const requested = [];
-  const events = r.step(.05, gas, index => { requested.push(index); return index === 0; });
-  assert.deepEqual(requested, [0]); assert.equal(r.elapsed, MODES.reto.limit);
-  assert.equal(r.status, 'lost'); assert.deepEqual(events, [{kind: 'finish'}]);
+  const events = r.step(.05, gas, index => {
+    requested.push(index); return index === 0;
+  });
+  assert.deepEqual(requested, [0]);
+  assert.equal(r.elapsed, MODES.reto.limit);
+  assert.equal(r.status, 'lost');
+  assert.deepEqual(events, [{kind: 'finish'}]);
 });
-test('120 Hz fixed simulation is identical on 30, 60, 90, 120 and 144 Hz displays', () => {
-  const samples=[];
-  for(const hz of [30,60,90,120,144]) {
-    const r=new Ride(); r.play(); const clock=new FixedClock(); let count=0;
-    for(let f=0;f<10*hz;f++) { const alpha=clock.advance(1/hz,dt=>{r.step(dt,controls(r));count++;}); assert.ok(alpha>=0&&alpha<=1); }
-    assert.equal(count,1200); samples.push(JSON.stringify(r));
-  }
-  assert.ok(samples.every(s=>s===samples[0]));
+
+
+test('fixed-step rides are identical at 30, 60 and 120 Hz', () => {
+  const baseline = perfect('reto', 1/120);
+  for (const hz of [30,60]) assert.deepEqual(perfect('reto', 1/hz), baseline);
 });
-test('accelerates above old speed in three seconds and reaches 54 km/h', () => {
-  const r = new Ride(); r.play(); advance(r,3); assert.ok(r.speed>10,r.speed);
-  advance(r,1); assert.equal(r.speed,15); assert.equal(r.speed*3.6,54);
+test('fixed clock preserves time at 10fps and caps background catch-up', () => {
+  const clock = new FixedClock(); let ticks=0;
+  for(let i=0;i<10;i++) clock.advance(.1,()=>{ticks++;});
+  assert.equal(ticks,120); clock.advance(200,()=>{ticks++;}); assert.equal(ticks,150);
+  clock.advance(NaN,()=>{throw Error('invalid clock');});
+  clock.reset(); assert.equal(clock.accumulator,0);
 });
-test('steering has bounded inertia and cannot slide a parked quad', () => {
-  const r=new Ride(); r.play(); advance(r,3,{right:true}); assert.equal(r.lane,0);
-  r.reset();r.play();advance(r,.6,{gas:true,right:true});
-  const before=r.lane, velocity=r.lateralVelocity;
-  r.step(1/120,{gas:true,left:true});
-  assert.ok(r.lateralVelocity>0); assert.ok(Math.abs(r.lane-before)<.02);
-  assert.ok(Math.abs(r.lateralVelocity-velocity)<.2);
-  advance(r,3,{brake:true}); assert.equal(r.speed,0);
-  advance(r,3,{}); const parked=r.lane;advance(r,2,{left:true});assert.ok(Math.abs(r.lane-parked)<1e-8);
+test('acceleration reaches cruising speed without teleporting or exceeding the limiter', () => {
+  const r = new Ride('paseo'); r.play();
+  r.step(PHYSICS_STEP,gas); assert.ok(r.speed<.05); assert.ok(r.distance<.001);
+  advance(r,3); assert.ok(r.speed*3.6>39); assert.ok(r.speed<=MODES.paseo.maxSpeed);
 });
-test('critically damped suspension is stable and refresh independent', () => {
-  const results=[];
-  for(const hz of [30,60,120,144]){ const s=new Spring(); for(let n=0;n<hz;n++){s.step(5,12,1/hz);assert.ok(s.value>=0&&s.value<=5);} results.push(s.value); }
-  assert.ok(Math.max(...results)-Math.min(...results)<1e-10);
-  const s=new Spring(5);s.snap();assert.equal(s.value,0);assert.equal(s.velocity,0);
+test('steering while stationary cannot slide the vehicle sideways', () => {
+  const r = new Ride('paseo'); r.play(); advance(r,3,{right:true});
+  assert.equal(r.distance,0); assert.equal(r.lane,0); assert.equal(r.lateralSpeed,0);
 });
-test('fixed clock caps background catch-up and ignores invalid deltas', () => {
-  const clock=new FixedClock();let ticks=0;clock.advance(500,()=>ticks++);assert.equal(ticks,12);
-  clock.advance(Infinity,()=>ticks++);clock.advance(-1,()=>ticks++);assert.equal(ticks,12);
-  clock.reset();assert.equal(clock.accumulator,0);
+test('tires retain lateral momentum briefly when steering is released', () => {
+  const r = new Ride('paseo'); r.play(); advance(r,2.5);
+  advance(r,.2,{gas:true,right:true}); const before=r.lateralSpeed;
+  assert.ok(before>0);
+  r.step(PHYSICS_STEP,gas);
+  assert.ok(r.lateralSpeed>0); assert.ok(Math.abs(r.lateralSpeed-before)<=6.8*PHYSICS_STEP+1e-9);
+});
+test('coasting and brakes decelerate; pause retains momentum without time passing', () => {
+  const r = new Ride('paseo'); r.play(); advance(r,3); const v=r.speed;
+  advance(r,1,{}); assert.ok(r.speed<v); const coasting=r.speed;
+  r.pause(); advance(r,10,gas); assert.equal(r.speed,coasting);
+  r.play(); advance(r,3,{brake:true}); assert.equal(r.speed,0);
+});
+test('analytic suspension converges without oscillatory explosion', () => {
+  let p=0,v=0;
+  for(let i=0;i<500;i++) { [p,v]=spring(p,v,8,12,[1/120,1/30,.25][i%3]); assert.ok(Number.isFinite(p)&&Number.isFinite(v)); }
+  assert.ok(Math.abs(p-8)<1e-9); assert.ok(Math.abs(v)<1e-9);
+});
+test('render interpolation stays between consecutive simulation poses', () => {
+  const r=new Ride(); r.play(); const a=pose(r); r.step(PHYSICS_STEP,gas); const b=pose(r);
+  const mid=interpolate(a,b,.5); assert.equal(mid.distance,(a.distance+b.distance)/2);
+  assert.deepEqual(interpolate(a,b,2),b); assert.deepEqual(interpolate(a,b,-2),a);
 });

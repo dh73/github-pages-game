@@ -18,7 +18,9 @@ jobs:
       - name: Game rules and complete rides
         run: |
           node --check game.js
-          node --test .github/tests/core.test.mjs
+          node --check street-player.mjs
+          node --check radio.mjs
+          node --test .github/tests/*.test.mjs
   mobile:
     runs-on: ubuntu-latest
     timeout-minutes: 8
