@@ -80,3 +80,56 @@ test('records survive reload and reject corrupt/blocked storage', () => {
   storage.setItem('cuatrimoto92.record.reto','{"score":-1}'); assert.equal(readRecord(storage,'reto'),null);
   assert.equal(saveRecord(storage,new Ride()),false);
 });
+
+test('the final challenge tick cannot travel or collect beyond the deadline', () => {
+  const r = new Ride('reto'); r.play();
+  const seal = r.objects.find(o => o.kind === 'seal');
+  r.elapsed = MODES.reto.limit - .01;
+  r.speed = MODES.reto.maxSpeed;
+  r.distance = seal.distance - .12;
+  r.lane = seal.lane;
+  const before = r.distance;
+  const events = r.step(.05, gas);
+  assert.equal(r.elapsed, MODES.reto.limit);
+  assert.ok(r.distance - before <= MODES.reto.maxSpeed * .01 + 1e-9);
+  assert.equal(seal.passed, false);
+  assert.equal(r.collected, 0);
+  assert.equal(r.score, 0);
+  assert.equal(r.status, 'lost');
+  assert.deepEqual(events, [{kind: 'finish'}]);
+});
+
+test('buffering at the deadline freezes the run and resumes only remaining time', () => {
+  const r = new Ride('reto'); r.play();
+  r.elapsed = MODES.reto.limit - .01;
+  r.speed = MODES.reto.maxSpeed;
+  r.distance = PHOTOS[1].distance - .04;
+  const before = JSON.stringify(r);
+  const requested = [];
+  for (let i = 0; i < 120; i++) {
+    assert.deepEqual(r.step(.05, gas, index => {
+      requested.push(index); return false;
+    }), [{kind: 'buffer'}]);
+  }
+  assert.equal(JSON.stringify(r), before);
+  assert.ok(requested.every(index => index === 1));
+  assert.deepEqual(r.step(.05, gas, () => true), [{kind: 'finish'}]);
+  assert.equal(r.elapsed, MODES.reto.limit);
+  assert.ok(r.distance - JSON.parse(before).distance <= MODES.reto.maxSpeed * .01 + 1e-9);
+  assert.equal(r.status, 'lost');
+});
+
+test('deadline never waits for a panorama the quad cannot reach in time', () => {
+  const r = new Ride('reto'); r.play();
+  r.elapsed = MODES.reto.limit - .01;
+  r.speed = MODES.reto.maxSpeed;
+  r.distance = PHOTOS[1].distance - .2;
+  const requested = [];
+  const events = r.step(.05, gas, index => {
+    requested.push(index); return index === 0;
+  });
+  assert.deepEqual(requested, [0]);
+  assert.equal(r.elapsed, MODES.reto.limit);
+  assert.equal(r.status, 'lost');
+  assert.deepEqual(events, [{kind: 'finish'}]);
+});
