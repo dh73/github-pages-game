@@ -80,8 +80,11 @@ export class Ride {
     const maxSpeed = MODES[this.mode].maxSpeed;
     const throttle = damp(this.throttle, input.gas && !input.brake ? 1 : 0, 12, dt);
     const requested = input.brake ? -10.5 : throttle * 6.8 * (1 - .38 * (this.speed/maxSpeed)**2) - .45 - .012 * this.speed**2;
-    const acceleration = this.acceleration + clamp(requested - this.acceleration, -42*dt, 25*dt);
+    let acceleration = this.acceleration + clamp(requested - this.acceleration, -42*dt, 25*dt);
+    if (input.brake) acceleration = Math.min(0, acceleration);
     const speed = clamp(this.speed + acceleration*dt, 0, maxSpeed);
+    // Use achieved acceleration: no nose dive at rest or acceleration while braking.
+    acceleration = (speed - this.speed) / dt;
     const oldDistance = this.distance;
     const distance = Math.min(LENGTH, oldDistance + (this.speed + speed)*.5*dt);
     // Callbacks may delay scenery, but a deliberate pause must freeze every field.
