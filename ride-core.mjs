@@ -23,7 +23,13 @@ export function pointAt(distance) {
   return {lat: a[0] + (b[0] - a[0]) * t, lng: a[1] + (b[1] - a[1]) * t,
     heading: (Math.atan2((b[1] - a[1]) * Math.cos(rad(a[0])), b[0] - a[0]) * 180 / Math.PI + 360) % 360};
 }
-export const PHOTOS = Object.freeze(Array.from({length: Math.ceil(LENGTH / PHOTO_STEP) + 1}, (_, i) => Object.freeze({distance: Math.min(i * PHOTO_STEP, LENGTH), ...pointAt(Math.min(i * PHOTO_STEP, LENGTH))})));
+// Native embed audit: samples 13 and 19 otherwise snap to perpendicular streets.
+// Seven metres back selects verified Vicente Guerrero photographs at both crossings.
+const PHOTO_OFFSETS = Object.freeze({13: -7, 19: -7});
+export const PHOTOS = Object.freeze(Array.from({length: Math.ceil(LENGTH / PHOTO_STEP) + 1}, (_, i) => {
+  const distance = Math.min(i * PHOTO_STEP, LENGTH);
+  return Object.freeze({distance, ...pointAt(distance + (PHOTO_OFFSETS[i] || 0))});
+}));
 export function photoAt(distance) { return distance >= LENGTH ? PHOTOS.length - 1 : Math.floor(Math.max(0, distance) / PHOTO_STEP); }
 export const MODES = Object.freeze({
   paseo: Object.freeze({name: 'Paseo', limit: null, maxSpeed: 11.11}),
