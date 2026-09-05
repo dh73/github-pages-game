@@ -55,6 +55,9 @@ export class Ride {
   step(dt, input, roadReady = () => true) {
     if (this.status !== 'playing') return [];
     dt = clamp(Number.isFinite(dt) ? dt : 0, 0, .05);
+    // Clip before physics and panorama gating: expired time cannot move the quad.
+    const remaining = this.remaining;
+    if (remaining !== null) dt = Math.min(dt, remaining);
     // Braking wins if both pedals are held. The frame gate prevents invisible travel.
     let speed = clamp(this.speed + (input.brake ? -7.5 : input.gas ? 2.8 : -1.6) * dt, 0, MODES[this.mode].maxSpeed);
     const distance = Math.min(LENGTH, this.distance + speed * dt);
