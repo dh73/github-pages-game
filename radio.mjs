@@ -25,6 +25,7 @@ export function installRadio(root){
   function load(){
     destroyPlayer();audio.pause();audio.hidden=true;mount.hidden=false;
     const t=current(),ticket=epoch;$('radio-link').href=`https://www.youtube.com/watch?v=${t.id}`;
+    if(!navigator.onLine){mount.hidden=true;status('Sin conexión: el motor sigue activo. Usa «Tu música» para escuchar un archivo de tu dispositivo.','offline');return;}
     status('Conectando con el reproductor oficial…','loading');
     const frame=document.createElement('iframe');frame.id='official-player';frame.title=`Valentín Elizalde — ${t.title}`;frame.referrerPolicy='strict-origin-when-cross-origin';frame.allow='autoplay; encrypted-media; fullscreen; picture-in-picture';frame.allowFullscreen=true;
     frame.src=`https://www.youtube-nocookie.com/embed/${t.id}?${new URLSearchParams({playsinline:'1',controls:'1',rel:'0',enablejsapi:'1',autoplay:'1',origin:location.origin})}`;mount.append(frame);
@@ -46,8 +47,15 @@ export function installRadio(root){
   $('music-file').addEventListener('change',()=>{
     const file=$('music-file').files?.[0];if(!file)return;
     if(!file.type.startsWith('audio/')&&!/\.(mp3|m4a|wav|ogg|aac|flac)$/i.test(file.name)){status('Elige un archivo de audio compatible.','error');return;}
-    destroyPlayer();if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);mount.hidden=true;audio.hidden=false;audio.src=objectURL;audio.volume=.65;audio.load();
-    status(`Tu dispositivo · ${file.name} · no se sube a ningún servidor`,'local');audio.play().catch(()=>status('Archivo preparado. Toca ▶ en el audio para escucharlo.','blocked'));
+    destroyPlayer();if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null;}mount.hidden=true;audio.hidden=false;audio.pause();audio.removeAttribute('src');
+    const ticket=epoch;
+    status(`Preparando ${file.name} · no se sube a ningún servidor`,'local-loading');
+    const use=src=>{if(ticket!==epoch||!opened)return;audio.src=src;audio.volume=.65;audio.load();status(`Tu dispositivo · ${file.name}`,'local');audio.play().catch(()=>status('Archivo preparado. Toca ▶ en el audio para escucharlo.','blocked'));};
+    // Small, local music files use a self-contained source for WebKit's offline
+    // media pipeline. Large files remain streamed from a revocable object URL.
+    if(file.size<=20*1024*1024){
+      const reader=new FileReader();reader.onload=()=>use(String(reader.result));reader.onerror=()=>status('No se pudo leer ese archivo. Elige otro.','error');reader.readAsDataURL(file);
+    }else{objectURL=URL.createObjectURL(file);use(objectURL);}
   });
   audio.addEventListener('playing',()=>status('Reproduciendo tu archivo local · sin conexión','playing'));
   audio.addEventListener('error',()=>status('Este formato de audio no se pudo reproducir. Prueba MP3 o M4A.','error'));
