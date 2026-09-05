@@ -79,15 +79,17 @@ async def run():
     # Optional music UI: local audio is decoded and played, not a silent placeholder.
     await page.locator('#radio-toggle').tap();await page.wait_for_timeout(100)
     assert await page.locator('#radio-track option').count()==5
-    frame=await page.locator('#radio-player iframe').bounding_box();assert frame['width']>=200 and frame['height']>=200,frame
+    assert await page.locator('#radio-player iframe').count()==0
+    assert (await state(page))['music']=='offline'
     wav=io.BytesIO()
     with wave.open(wav,'wb') as w:
      w.setparams((1,2,24000,0,'NONE','not compressed'));w.writeframes(b''.join(struct.pack('<h',int(math.sin(i/24000*440*math.tau)*1000)) for i in range(24000*3)))
     await page.locator('#music-file').set_input_files({'name':'audio-test.wav','mimeType':'audio/wav','buffer':wav.getvalue()})
+    await page.wait_for_function("document.getElementById('local-audio').getAttribute('src')?.startsWith('data:audio/')",timeout=10000)
     await page.locator('#radio-play').click()
     try:await page.wait_for_function("document.getElementById('local-audio').readyState>=2 && document.getElementById('local-audio').currentTime>0",timeout=12000)
     except Exception:
-     print('MEDIA ERROR',await page.locator('#local-audio').evaluate('(e)=>({src:e.currentSrc,state:e.readyState,network:e.networkState,error:e.error?.message,support:e.canPlayType("audio/wav"),paused:e.paused})'),flush=True);raise
+     print('MEDIA ERROR',await page.locator('#local-audio').evaluate('(e)=>({src:e.currentSrc.slice(0,70),state:e.readyState,network:e.networkState,error:e.error?.message,support:e.canPlayType("audio/wav"),paused:e.paused})'),flush=True);raise
     media=await page.locator('#local-audio').evaluate('(e)=>({time:e.currentTime,paused:e.paused,ready:e.readyState})');assert media['time']>0 and not media['paused'] and media['ready']>=2,media
     await page.locator('#radio-close').tap();assert await page.locator('iframe').count()==0
     assert await page.locator('#local-audio').evaluate('(e)=>e.paused')
