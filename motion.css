@@ -1,0 +1,61 @@
+/* Motion-3: fixed-step vehicle, bounded photo compositing, optional visible radio. */
+#game{grid-template-areas:"header" "stats" "street" "footer"}
+.header{grid-area:header}.ride-stats{grid-area:stats}.street{grid-area:street}.dashboard{grid-area:footer}
+#game.radio-open{grid-template-areas:"header" "stats" "street" "radio" "footer";grid-template-rows:auto auto minmax(0,1fr) auto auto}
+.views{contain:layout paint;overflow:hidden}
+.views iframe{transform-origin:50% 100%;transition:opacity .55s ease;will-change:opacity,transform}
+#rider{backface-visibility:hidden;contain:layout style}
+#game.running .views iframe.visible{pointer-events:none}
+.radio-panel{grid-area:radio;position:relative;background:#182124;border-top:1px solid #ffad4d30;padding:8px 12px;min-width:0;z-index:12}
+.radio-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.radio-heading strong{font-size:11px;letter-spacing:.12em;color:var(--accent)}
+.radio-heading small{font-size:8px;letter-spacing:.07em;margin-left:9px;color:var(--muted)}
+.radio-heading .icon-button{width:30px;height:30px;font-size:20px}
+.radio-select{display:flex;gap:6px;margin-bottom:6px}
+.radio-select select{min-width:0;flex:1;border:1px solid #ffffff30;border-radius:5px;color:var(--paper);background:#263134;padding:6px;font:inherit;font-size:12px}
+.radio-select button{background:#3d4748;border-radius:5px;padding:5px 9px;font-size:10px}
+.radio-player{width:100%;height:200px;min-width:200px;background:#101618}
+.radio-player iframe{display:block;border:0;width:100%;height:100%;min-width:200px;min-height:200px}
+.radio-panel p{margin:6px 0 2px;font-size:9px;line-height:1.3;color:var(--muted)}
+.radio-panel>a{font-size:10px;color:var(--accent)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(min-width:720px){
+ #game.radio-open{grid-template-columns:minmax(0,1fr) 310px;grid-template-rows:auto auto minmax(0,1fr) auto;grid-template-areas:"header header" "stats radio" "street radio" "footer radio"}
+ .radio-panel{border-left:1px solid #ffffff1a;display:flex;flex-direction:column;justify-content:center}
+ .radio-heading small{display:block;margin:4px 0}.radio-heading{margin-bottom:8px}
+}
+@media(orientation:landscape) and (max-width:719px){
+ #game.radio-open{grid-template-columns:minmax(0,1fr) 212px;grid-template-rows:auto auto minmax(0,1fr) auto;grid-template-areas:"header header" "stats radio" "street radio" "footer radio"}
+ .radio-panel{padding:5px}.radio-heading small{display:none}.radio-panel p{display:none}
+ .radio-player{height:200px}.radio-select{margin-bottom:4px}.radio-select select{font-size:10px}
+ .radio-select button{padding:4px;font-size:9px}.radio-heading .icon-button{height:24px}
+ #game.radio-open .drive{min-width:44px}#game.radio-open .gas{min-width:48px}
+ #game.radio-open .steering,#game.radio-open .pedals{gap:4px}#game.radio-open .speedometer{min-width:35px}
+ #game.radio-open .speedometer>small{display:none}#game.radio-open #speed{font-size:24px}
+}
+@media(orientation:portrait) and (max-height:740px){
+ #game.radio-open .radio-heading{height:25px}#game.radio-open .radio-panel p{display:none}
+ #game.radio-open .radio-panel{padding-top:3px;padding-bottom:3px}
+ #game.radio-open .radio-heading small{font-size:7px}
+}
+
+.views iframe.outgoing{opacity:1;pointer-events:none}
+.radio-heading .icon-button{width:44px;height:44px}
+.radio-select select,.radio-select button{min-height:44px}
+@media(orientation:portrait) and (max-height:740px),(orientation:landscape) and (max-height:430px){
+ .radio-panel{display:grid;grid-template-columns:minmax(0,1fr) 44px;grid-template-rows:44px 200px 16px;grid-template-areas:"select close" "player player" "link link";padding:0 5px!important;gap:0;align-content:center}
+ .radio-heading{grid-area:close;height:44px!important;margin:0}.radio-heading>div{display:none}
+ .radio-heading .icon-button{width:44px;height:44px!important}
+ .radio-select{grid-area:select;margin:0;align-items:center}.radio-select select,.radio-select button{min-height:44px}
+ .radio-player{grid-area:player}.radio-panel>a{grid-area:link;line-height:16px;font-size:9px}.radio-panel p{display:none}
+}
+@media(orientation:portrait) and (max-height:740px){
+ #game.radio-open .header{height:36px}#game.radio-open .brand p{display:none}
+ #game.radio-open .icon-button{width:36px;height:36px}
+ #game.radio-open .ride-stats{min-height:24px;padding-top:3px;padding-bottom:3px}
+ #game.radio-open .drive{height:44px;gap:3px}#game.radio-open .route-note,#game.radio-open .trip{display:none}
+ #game.radio-open .dashboard{padding-top:1px;padding-bottom:calc(1px + var(--safe-bottom))}
+ #game.radio-open .speedometer span{font-size:7px}#game.radio-open #speed{font-size:24px}
+ #game.radio-open #rider{width:90px;bottom:38px}
+ #game.radio-open #radio-close{width:44px;height:44px}
+}
