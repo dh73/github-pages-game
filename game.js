@@ -1,8 +1,14 @@
-import {Ride, MODES, LENGTH, PHOTOS, photoAt, streetURL, clamp, readRecord, saveRecord} from './ride-core.mjs?v=release-2';
+import {Ride, MODES, LENGTH, photoAt, clamp, readRecord, saveRecord, FixedClock, pose, interpolate} from './ride-core.mjs?v=motion-3';
+import {StreetPlayer} from './street-player.mjs?v=motion-3';
+import {installRadio} from './radio.mjs?v=motion-3';
 
-const $ = id => document.getElementById(id);
+const elements = new Map();
+const $ = id => { if (!elements.has(id)) elements.set(id,document.getElementById(id)); return elements.get(id); };
 const ui = $('game');
 const ride = new Ride();
+const clock = new FixedClock();
+let previous = pose(ride), visual = pose(ride), scenery = {lag:0,stalled:false,failed:false};
+let halfSpan = 100, floorY = 100;
 const input = Object.fromEntries(['gas', 'brake', 'left', 'right'].map(key => [key, new Set()]));
 const held = () => Object.fromEntries(Object.entries(input).map(([key, values]) => [key, values.size > 0]));
 let screen = 'intro', countdown = 0, last = 0, hudClock = 0, toastTimer = 0, wakeLock = null;
@@ -12,74 +18,8 @@ try { storage = window.localStorage; } catch { storage = null; }
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const canvas = $('course'), ctx = canvas.getContext('2d');
 
-// Three bounded native embeds; no copied Google imagery, keys, or map fallback.
-class StreetPhotos {
-  constructor(container) { this.container = container; this.slots = []; this.epoch = 0; this.active = null; }
-  dispose(slot) {
-    clearTimeout(slot.timeout); clearTimeout(slot.settle);
-    slot.frame.onload = null; slot.frame.remove();
-    this.slots = this.slots.filter(s => s !== slot);
-    if (this.active === slot) this.active = null;
-  }
-  reset(index) {
-    this.epoch++;
-    [...this.slots].forEach(slot => this.dispose(slot));
-    this.ensure(index); this.ensure(index + 1);
-  }
-  ensure(index) {
-    if (!PHOTOS[index]) return null;
-    let slot = this.slots.find(s => s.index === index);
-    if (slot) return slot;
-    if (this.slots.length >= 3) {
-      const disposable = s => s !== this.active && performance.now() >= s.retireAt;
-      const victim = this.slots.find(s => disposable(s) && s.index < index - 1) || this.slots.find(s => disposable(s) && Math.abs(s.index - index) > 1);
-      if (!victim) return null;
-      this.dispose(victim);
-    }
-    const frame = document.createElement('iframe');
-    frame.title = `Google Street View · Vicente Guerrero · tramo ${index + 1}`;
-    frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.loading = 'eager'; frame.allow = 'fullscreen';
-    frame.tabIndex = -1; frame.setAttribute('aria-hidden', 'true');
-    const epoch = this.epoch;
-    slot = {index, frame, ready: false, failed: false, timeout: 0, settle: 0, retireAt: 0};
-    this.slots.push(slot);
-    const current = () => this.epoch === epoch && this.slots.includes(slot);
-    slot.timeout = setTimeout(() => { if (current()) slot.failed = true; }, 25000);
-    frame.onload = () => {
-      if (!current()) return;
-      clearTimeout(slot.settle);
-      // Cross-origin onload confirms the document, not individual panorama tiles.
-      // Keep manual repair available; live browser tests inspect Google's actual view.
-      slot.settle = setTimeout(() => {
-        if (!current()) return;
-        clearTimeout(slot.timeout); slot.ready = true; slot.failed = false;
-      }, 1300);
-    };
-    frame.src = streetURL(PHOTOS[index]);
-    this.container.append(frame);
-    return slot;
-  }
-  show(index) {
-    const slot = this.ensure(index);
-    if (!slot?.ready) return false;
-    if (this.active !== slot) {
-      if (this.active) this.active.retireAt = performance.now() + 350;
-      this.active = slot;
-      this.slots.forEach(s => {
-        s.frame.classList.toggle('visible', s === slot);
-        s.frame.setAttribute('aria-hidden', String(s !== slot));
-        s.frame.tabIndex = s === slot ? 0 : -1;
-      });
-      photoIndex = index;
-    }
-    // A failed speculative preload never interrupts the current ride.
-    this.ensure(index + 1); this.ensure(index + 2);
-    return true;
-  }
-  failed(index) { return this.slots.some(s => s.index === index && s.failed); }
-}
-const photos = new StreetPhotos($('views'));
+const photos = new StreetPlayer($('views'), {reducedMotion, maxFrames:navigator.deviceMemory && navigator.deviceMemory <= 4 ? 4 : 5});
+installRadio(ui);
 
 class Motor {
   constructor() { this.enabled = false; this.context = null; }
@@ -137,6 +77,7 @@ async function keepAwake() {
 }
 function setScreen(value) {
   screen = value; ui.dataset.status = value;
+  clock.reset(); previous = pose(ride); visual = pose(ride);
   ui.classList.toggle('running', value === 'playing');
   for (const [id, key] of [['intro', 'intro'], ['pause-screen', 'paused'], ['finish', 'finished'], ['error-screen', 'error']]) $(id).hidden = value !== key;
   $('countdown').hidden = value !== 'countdown';
@@ -165,7 +106,7 @@ function selectMode(mode) {
   recordLabel(); renderHUD();
 }
 function reset(mode = ride.mode) {
-  ride.reset(mode); countdown = 0; buffering = true; photoIndex = 0; particles = []; impact = 0;
+  ride.reset(mode); previous = pose(ride); visual = pose(ride); clock.reset(); scenery = {lag:0,stalled:false,failed:false}; countdown = 0; buffering = true; photoIndex = 0; particles = []; impact = 0;
   photos.reset(0); $('loading').hidden = false; $('start').disabled = true;
   $('start').textContent = 'Cargando la calle…'; clearTimeout(toastTimer); $('toast').classList.remove('show');
   setScreen('intro'); selectMode(mode); last = performance.now();
@@ -211,13 +152,13 @@ function finish() {
 }
 function update(dt) {
   if (screen === 'intro' || screen === 'paused') {
-    if (photos.show(photoAt(ride.distance))) {
+    if (photos.prepare(ride.distance)) {
       buffering = false; $('loading').hidden = true;
       $('start').disabled = false; $('start').textContent = 'Encender y salir';
       $('resume').disabled = false;
     } else {
       $('resume').disabled = true;
-      if (photos.failed(photoAt(ride.distance))) error();
+      if (photos.failed(photoAt(ride.distance)) || photos.failed(photoAt(ride.distance)+1)) error();
     }
     return;
   }
@@ -229,13 +170,9 @@ function update(dt) {
     return;
   }
   if (screen !== 'playing') return;
-  const events = ride.step(dt, held(), index => {
-    const ready = photos.show(index);
-    if (!ready && photos.failed(index)) error();
-    return ready;
-  });
+  const events = ride.step(dt, held(), () => !scenery.stalled);
   buffering = events.some(e => e.kind === 'buffer');
-  $('loading').hidden = !buffering || screen === 'error';
+  if (scenery.failed && scenery.stalled) error();
   for (const event of events) {
     if (event.kind === 'seal') {
       notify(`+${event.points} · sello ${ride.collected}/8${ride.combo > 1 ? ` · combo ×${ride.combo}` : ''}`);
@@ -246,8 +183,8 @@ function update(dt) {
   }
 }
 function vibrate(pattern) { try { navigator.vibrate?.(pattern); } catch {} }
-function span() { return Math.max(30, Math.min(width * .28, 200, (width - $('rider').offsetWidth - 92) / 2)); }
-function ground() { return Math.max(height * .55, height - 77); }
+function span() { return halfSpan; }
+function ground() { return floorY; }
 function burst(lane) {
   if (reducedMotion) return;
   for (let i = 0; i < 14; i++) particles.push({x: width / 2 + lane * span(), y: ground() - 34, vx: (Math.random() - .5) * 170, vy: -40 - Math.random() * 120, life: .6});
@@ -255,6 +192,8 @@ function burst(lane) {
 }
 function resize() {
   const r = $('street').getBoundingClientRect(); width = Math.max(1, r.width); height = Math.max(1, r.height);
+  halfSpan = Math.max(30,Math.min(width*.28,200,(width-$('rider').offsetWidth-92)/2));
+  floorY = Math.max(height*.55,height-77);
   const ratio = Math.min(devicePixelRatio || 1, 1.6);
   canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0); particles = [];
@@ -264,7 +203,7 @@ function drawCourse(dt) {
   if (screen !== 'playing') return;
   const horizon = height * .49, floor = ground(), half = span();
   for (let i = ride.objects.length - 1; i >= 0; i--) {
-    const o = ride.objects[i], d = o.distance - ride.distance;
+    const o = ride.objects[i], d = o.distance - visual.distance;
     if (o.passed || d < 0 || d > 65) continue;
     const p = 10 / (d + 10), x = width / 2 + o.lane * half * p, y = horizon + (floor - horizon) * p;
     const radius = clamp(Math.min(width * .065, 31) * p, 3, 31);
@@ -291,8 +230,8 @@ function drawCourse(dt) {
     }
     ctx.restore();
   }
-  if (LENGTH - ride.distance < 50) {
-    const p = 10 / (LENGTH - ride.distance + 10), y = horizon + (floor - horizon) * p;
+  if (LENGTH - visual.distance < 50) {
+    const p = 10 / (LENGTH - visual.distance + 10), y = horizon + (floor - horizon) * p;
     const cell = Math.max(3, half * .17 * p);
     for (let row = 0; row < 2; row++) for (let col = 0; col < 12; col++) {
       ctx.fillStyle = (row + col) % 2 ? '#172022cc' : '#fff7e5ee';
@@ -308,7 +247,7 @@ function drawCourse(dt) {
 }
 function renderHUD() {
   $('speed').textContent = buffering || screen !== 'playing' ? '0' : String(Math.round(ride.speed * 3.6));
-  $('gear').textContent = ride.speed < .5 ? 'N' : ride.speed < 3.5 ? '1' : ride.speed < 6.5 ? '2' : '3';
+  $('gear').textContent = ride.speed < .5 ? 'N' : ride.speed < 5 ? '1' : ride.speed < 10 ? '2' : '3';
   $('collected').textContent = ride.collected; $('score').textContent = ride.score;
   $('clock').textContent = formatTime(ride.remaining === null ? ride.elapsed : Math.ceil(ride.remaining));
   $('clock').classList.toggle('urgent', ride.remaining !== null && ride.remaining < 15);
@@ -318,16 +257,32 @@ function renderHUD() {
   $('progress').style.width = `${ride.distance / LENGTH * 100}%`;
   const next = ride.next;
   $('next-object').textContent = next ? `${next.kind === 'cone' ? 'ESQUIVA' : 'SELLO'} ${next.lane < -.15 ? '←' : next.lane > .15 ? '→' : '↑'} ${Math.ceil(next.distance - ride.distance)} m` : 'META';
-  Object.assign(ui.dataset, {distance: ride.distance.toFixed(3), speed: ride.speed.toFixed(3), lane: ride.lane.toFixed(3), photo: String(photoIndex), buffering: String(buffering), score: String(ride.score), collected: String(ride.collected), hits: String(ride.hits), elapsed: ride.elapsed.toFixed(3), mode: ride.mode});
+  Object.assign(ui.dataset, {distance: ride.distance.toFixed(3), speed: ride.speed.toFixed(3), lane: ride.lane.toFixed(3), photo: String(photoIndex), buffering: String(buffering), score: String(ride.score), collected: String(ride.collected), hits: String(ride.hits), elapsed: ride.elapsed.toFixed(3), mode: ride.mode, sceneryLag:String(scenery.lag), frames:String(photos.count), lateralSpeed:ride.lateralSpeed.toFixed(3), version:'3.0'});
   Object.assign($('next-object').dataset, {lane: String(next?.lane ?? 0), kind: next?.kind || 'finish', distance: String(next ? next.distance - ride.distance : LENGTH - ride.distance)});
 }
 function frame(now) {
-  const dt = clamp((now - (last || now)) / 1000, 0, .05); last = now;
-  update(dt); drawCourse(dt); impact = Math.max(0, impact - dt);
-  const bounce = !reducedMotion && screen === 'playing' && !buffering ? Math.sin(ride.distance * 3) * Math.min(2, ride.speed * .3) + Math.sin(now * .09) * impact * 4 : 0;
-  $('rider').style.transform = `translateX(calc(-50% + ${(ride.lane * span()).toFixed(2)}px)) translateY(${bounce.toFixed(2)}px) rotate(${(-ride.steer * 5).toFixed(2)}deg)`;
-  motor.update(buffering ? 0 : ride.speed, screen === 'playing' && !buffering, input.gas.size > 0);
-  hudClock += dt; if (hudClock >= .08) { renderHUD(); hudClock = 0; }
+  const dt = clamp((now - (last || now)) / 1000, 0, .25); last = now;
+  if (screen === 'playing' || screen === 'finished') scenery = photos.update(ride.distance);
+  if (screen === 'playing') {
+    const alpha = clock.advance(dt, h => {
+      previous = pose(ride); update(h);
+      return screen === 'playing' && !buffering;
+    });
+    visual = interpolate(previous,pose(ride),alpha);
+  } else { update(dt); previous = pose(ride); visual = pose(ride); clock.reset(); }
+  photoIndex = photos.index;
+  if (screen === 'playing') {
+    $('loading').hidden = scenery.lag === 0;
+    $('loading').lastElementChild.textContent = scenery.stalled ? 'Esperando la calle · reloj en pausa' : 'Actualizando vista · sigues rodando';
+  }
+  photos.render(visual.distance);
+  drawCourse(dt); impact = Math.max(0,impact-dt);
+  const bounce = !reducedMotion && screen === 'playing' && !buffering ? Math.sin(visual.distance*2.4)*Math.min(1.3,visual.speed*.09)+Math.sin(now*.075)*impact*3 : 0;
+  const roll = reducedMotion ? 0 : visual.roll-visual.heading*8;
+  const pitch = reducedMotion ? 1 : 1+visual.pitch*.004;
+  $('rider').style.transform = `translate3d(calc(-50% + ${(visual.lane*span()).toFixed(3)}px),${bounce.toFixed(3)}px,0) rotate(${roll.toFixed(3)}deg) scaleY(${pitch.toFixed(4)})`;
+  motor.update(buffering ? 0 : ride.speed, screen === 'playing' && !buffering, input.gas.size>0);
+  hudClock+=dt; if(hudClock>=.05){renderHUD();hudClock=0;}
   requestAnimationFrame(frame);
 }
 
@@ -344,6 +299,7 @@ for (const button of document.querySelectorAll('.drive')) {
 }
 const keys = {ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'gas', w: 'gas', ArrowDown: 'brake', s: 'brake', ' ': 'brake'};
 window.addEventListener('keydown', e => {
+  if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (keys[key] && screen === 'playing') { e.preventDefault(); input[keys[key]].add(`key-${key}`); }
   if (e.repeat) return;

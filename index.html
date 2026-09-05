@@ -11,14 +11,16 @@
   <link rel="preconnect" href="https://maps.google.com">
   <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
   <link rel="stylesheet" href="style.css?v=release-2">
-  <script type="module" src="game.js?v=release-2"></script>
+  <link rel="stylesheet" href="motion.css?v=motion-3">
+  <script type="module" src="game.js?v=motion-3"></script>
 </head>
 <body>
-<main id="game" data-version="2.0">
+<main id="game" data-version="3.0">
   <header class="header">
     <div class="brand"><span class="badge">92</span><div><h1>CUATRIMOTO</h1><p>GUASAVE, SINALOA</p></div></div>
     <div class="location"><i></i><div><strong>Vicente Guerrero</strong><small>AYUNTAMIENTO 92</small></div></div>
     <nav aria-label="Opciones del juego">
+      <button id="radio-toggle" class="icon-button" aria-label="Radio Valentín Elizalde" aria-expanded="false" aria-controls="radio-panel" title="Radio · Valentín Elizalde"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/></svg></button>
       <button id="sound" class="icon-button" aria-label="Activar sonido del motor" aria-pressed="false" title="Sonido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Zm5 3c3 2 3 6 0 8m3-11c5 4 5 10 0 14"/></svg></button>
       <button id="pause" class="icon-button" aria-label="Pausar" disabled title="Pausa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
       <button id="fullscreen" class="icon-button" aria-label="Pantalla completa" title="Pantalla completa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button>
@@ -64,6 +66,12 @@
       <button id="retry" class="primary">Reintentar</button><button id="restart-error" class="secondary">Volver al inicio</button>
     </div></div>
   </section>
+  <aside id="radio-panel" class="radio-panel" aria-label="Radio · Valentín Elizalde · YouTube" hidden>
+    <div class="radio-heading"><div><strong>RADIO 92</strong><small>VALENTÍN ELIZALDE · VEVO</small></div><button id="radio-close" class="icon-button" aria-label="Cerrar y detener música">×</button></div>
+    <div class="radio-select"><label class="sr-only" for="radio-track">Canción</label><select id="radio-track"></select><button id="radio-next" aria-label="Siguiente canción">Siguiente</button></div>
+    <div id="radio-player" class="radio-player"></div>
+    <p id="radio-note"></p><a id="radio-link" target="_blank" rel="noopener noreferrer">Abrir en YouTube</a>
+  </aside>
   <footer class="dashboard">
     <div class="route-note"><span>CALLE REAL · RECORRIDO POR PANORAMAS</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Ruta © OpenStreetMap</a></div>
     <div class="trip"><span id="distance">0 m</span><div class="trip-track"><div id="progress"></div></div><span id="remaining">META</span></div>

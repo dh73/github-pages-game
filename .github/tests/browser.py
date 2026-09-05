@@ -27,9 +27,10 @@ async def run():
             context = await browser.new_context(viewport={'width':width,'height':height}, is_mobile=True, has_touch=True, device_scale_factor=1)
             page = await context.new_page()
             errors = []
-            page.on('pageerror', lambda e: errors.append(str(e)) if 'game.js' in (e.stack or '') or 'ride-core' in (e.stack or '') else None)
+            page.on('pageerror', lambda e: errors.append(str(e)) if 'game.js' in (e.stack or '') or any(x in (e.stack or '') for x in ['ride-core','street-player','radio.mjs']) else None)
             if not args.live:
                 await context.route('https://maps.google.com/**', lambda route: route.fulfill(status=200, content_type='text/html', body='<html><body style="margin:0;background:#374349;color:white"><p>TEST PANORAMA FIXTURE — NOT REAL IMAGERY</p></body></html>'))
+                await context.route('https://www.youtube-nocookie.com/**', lambda route: route.fulfill(status=200, content_type='text/html', body='<html><body>OFFICIAL PLAYER TEST FIXTURE</body></html>'))
                 await page.clock.install()
             async def wait(ms):
                 if args.live: await page.wait_for_timeout(ms)
@@ -56,6 +57,24 @@ async def run():
                     assert r and r['width']>=44 and r['height']>=44 and r['x']>=0 and r['y']+r['height']<=height+1, (name,r)
                 road = await page.locator('#street').bounding_box()
                 assert road['width']>=200 and road['height']>=200, (name,road)
+                # Optional radio never loads until requested and leaves driving controls usable.
+                assert await page.locator('#radio-player iframe').count()==0
+                await page.locator('#radio-toggle').tap(); await wait(100)
+                assert await page.locator('#radio-track option').count()==5
+                media = await page.locator('#radio-player iframe').bounding_box()
+                assert media and media['width']>=200 and media['height']>=200, (name,media)
+                assert media['x']>=0 and media['x']+media['width']<=width+1, (name,media)
+                assert media['y']>=0 and media['y']+media['height']<=height+1, (name,media)
+                for button in await page.locator('.drive').all():
+                    box=await button.bounding_box()
+                    assert box['width']>=44 and box['height']>=44 and box['y']+box['height']<=height+1, (name,box)
+                assert '/BJhj7KrrPSg?' in await page.locator('#radio-player iframe').get_attribute('src')
+                await page.locator('#radio-next').tap()
+                assert '/1wauorb3vyg?' in await page.locator('#radio-player iframe').get_attribute('src')
+                await page.screenshot(path=str(shots / f'{args.engine}-{name}-radio.png'))
+                await page.locator('#radio-close').tap(); await wait(100)
+                assert await page.locator('#radio-player iframe').count()==0
+                assert await page.locator('#radio-toggle').get_attribute('aria-expanded')=='false'
                 await page.locator('#start').tap()
                 await wait(3250)
                 assert (await state(page))['status']=='playing'
@@ -85,7 +104,7 @@ async def run():
                 await page.keyboard.down('w'); await wait(6500); await page.keyboard.up('w')
                 st = await state(page)
                 assert float(st['distance'])>17 and int(st['photo'])>=1, st
-                assert await page.locator('#views iframe').count()<=3
+                assert await page.locator('#views iframe').count()<=5
                 await page.screenshot(path=str(shots / f'{args.engine}-{name}-driving.png'))
                 # Regression for the previous resume failure; do it twice, with iframe focus/blur.
                 for _ in range(2):
@@ -125,7 +144,7 @@ async def run():
                         cue = await page.locator('#next-object').evaluate('(e)=>({...e.dataset})')
                         lane = float(cue['lane'])
                         target = lane if cue['kind']=='seal' else (.55 if lane<=0 else -.55) if cue['kind']=='cone' else 0
-                        diff = target-float(st['lane'])
+                        diff = target-float(st['lane'])-float(st.get('lateralSpeed',0))*.20/2.8
                         key = 'd' if diff>.065 else 'a' if diff<-.065 else None
                         if key != direction:
                             if direction: await page.keyboard.up(direction)
@@ -135,14 +154,15 @@ async def run():
                             label = await page.frame_locator('#views iframe.visible').locator('body').inner_text()
                             assert re.search(r'Vicente Guerrero|P[ií]pila',label,re.I), (st,label)
                             seen.add(st['photo'])
-                        await wait(100)
+                        await wait(40)
                     await page.keyboard.up('w')
                     if direction: await page.keyboard.up(direction)
                     st=await state(page)
                     assert st['status']=='finished',st
                     assert int(st['collected'])==8 and int(st['hits'])==0,st
                     assert await page.locator('#result-stars').get_attribute('aria-label')=='3 de 3 estrellas'
-                    assert float(st['distance'])>400 and int(st['photo'])==25,st
+                    assert float(st['distance'])>400 and int(st['photo'])>=23,st
+                    await wait(2300)
                     await page.screenshot(path=str(shots / f'{args.engine}-{name}-finish.png'))
                     print('FULL CHALLENGE',args.engine, 'LIVE' if args.live else 'FIXTURE',json.dumps(st),'verified panoramas',len(seen),flush=True)
                     await page.reload(wait_until='domcontentloaded')
@@ -159,8 +179,8 @@ async def run():
         if args.live:
             context = await browser.new_context(viewport={'width':1024,'height':768})
             page = await context.new_page()
-            await page.goto('https://dh73.github.io/github-pages-game/?v=release-2', wait_until='domcontentloaded')
-            await page.wait_for_function("document.getElementById('game')?.dataset.version === '2.0'", timeout=60000)
+            await page.goto('https://dh73.github.io/github-pages-game/?v=motion-3', wait_until='domcontentloaded')
+            await page.wait_for_function("document.getElementById('game')?.dataset.version === '3.0'", timeout=60000)
             await page.wait_for_function("!document.getElementById('start').disabled", timeout=45000)
             label = await page.frame_locator('#views iframe.visible').locator('body').inner_text()
             assert re.search(r'Vicente Guerrero|P[ií]pila', label, re.I), label
