@@ -12,63 +12,39 @@ concurrency:
 jobs:
   rules:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Game rules and complete rides
+      - name: Game rules, vehicle physics and continuous route
         run: |
           node --check game.js
-          node --check street-player.mjs
+          node --check route-renderer.mjs
+          node --check engine-audio.mjs
           node --check radio.mjs
           node --test .github/tests/*.test.mjs
   mobile:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         engine: [chromium, webkit]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
     steps:
       - uses: actions/checkout@v4
       - name: Install browser
         run: |
           python3 -m pip install --quiet playwright==1.55.0
           python3 -m playwright install --with-deps ${{ matrix.engine }} > /tmp/browser-install.log 2>&1 || { tail -80 /tmp/browser-install.log; exit 1; }
-      - name: Phone and tablet controls, progression, recovery and replay
+      - name: Native file diagnostic
+        if: matrix.engine == 'webkit'
+        run: python3 .github/tests/media-probe.py
+      - name: Real WebGL, complete offline ride, multi-touch and nonzero audio
         run: python3 .github/tests/browser.py --engine ${{ matrix.engine }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: controls-${{ matrix.engine }}
+          name: route-${{ matrix.engine }}
           path: /tmp/cuatrimoto-shots/*.png
           retention-days: 3
-  street:
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install browser
-        run: |
-          python3 -m pip install --quiet playwright==1.55.0
-          python3 -m playwright install --with-deps chromium > /tmp/browser-install.log 2>&1 || { tail -80 /tmp/browser-install.log; exit 1; }
-      - name: Complete the challenge against real Google street panoramas
-        run: python3 .github/tests/browser.py --live
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: real-street-and-published-game
-          path: /tmp/cuatrimoto-shots/*.png
-          retention-days: 3
-  photo-selection:
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install street browser
-        run: |
-          python3 -m pip install --quiet playwright==1.55.0
-          python3 -m playwright install --with-deps chromium > /tmp/browser-install.log 2>&1 || { tail -80 /tmp/browser-install.log; exit 1; }
-      - name: Verify native panorama positions and names
-        run: python3 .github/tests/street-audit.py
