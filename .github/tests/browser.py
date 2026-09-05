@@ -84,7 +84,8 @@ async def run():
     wav=io.BytesIO()
     with wave.open(wav,'wb') as w:
      w.setparams((1,2,24000,0,'NONE','not compressed'));w.writeframes(b''.join(struct.pack('<h',int(math.sin(i/24000*440*math.tau)*1000)) for i in range(24000*3)))
-    await page.locator('#music-file').set_input_files({'name':'audio-test.wav','mimeType':'audio/wav','buffer':wav.getvalue()})
+    tone=shots/f'{args.engine}-{width}-audio.wav';tone.write_bytes(wav.getvalue())
+    await page.locator('#music-file').set_input_files(str(tone))
     await page.wait_for_function("document.getElementById('local-audio').getAttribute('src')?.startsWith('data:audio/')",timeout=10000)
     await page.locator('#radio-play').click()
     try:await page.wait_for_function("document.getElementById('local-audio').readyState>=2 && document.getElementById('local-audio').currentTime>0",timeout=12000)
@@ -97,7 +98,7 @@ async def run():
     print('PASS',args.engine,width,height,'audio RMS',diag['audio']['rms'],'route offline',flush=True)
    except Exception:
     print('FAILED',args.engine,width,'STATE',await state(page),'ERRORS',errors,flush=True)
-    print('GAME ERROR',await page.locator('#error-message').text_content(),flush=True)
+    print('GAME ERROR',await page.locator('#error-message').text_content(),'RADIO',await page.locator('#radio-note').text_content(),flush=True)
     await page.screenshot(path=str(shots/f'{args.engine}-{width}-failure.png'));raise
    await context.close()
   await browser.close()
