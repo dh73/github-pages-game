@@ -26,9 +26,8 @@ void main(){vec4 w=u_model*vec4(a_position,1.);v_world=w.xyz;v_local=a_position;
 const fragment=`
 precision highp float;
 varying vec3 v_world;varying vec3 v_normal;varying vec3 v_color;varying float v_material;varying vec4 v_shadow;varying vec3 v_local;
-uniform vec3 u_eye;uniform sampler2D u_shadow;uniform sampler2D u_sign;uniform float u_shadowSize;
-float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1)),f.x),f.y);}
+uniform vec3 u_eye;uniform sampler2D u_shadow;uniform sampler2D u_sign;uniform sampler2D u_noise;uniform float u_shadowSize;
+float noise(vec2 p){return texture2D(u_noise,p/256.).r;}
 float unpack(vec4 c){return dot(c,vec4(1.,1./255.,1./65025.,1./16581375.));}
 void main(){
  if(v_material>7.5&&v_material<8.5){float a=max(0.,1.-dot(v_local.xz,v_local.xz));gl_FragColor=vec4(.06,.05,.035,a*a*.40);return;}
@@ -42,7 +41,7 @@ void main(){
  vec3 sc=v_shadow.xyz/v_shadow.w*.5+.5;
  float shade=0.;
  if(sc.x>0.&&sc.x<1.&&sc.y>0.&&sc.y<1.&&sc.z<1.){
-   float bias=max(.00009,.00025*(1.-max(0.,dot(n,light))));
+   float bias=max(.00035,.00065*(1.-max(0.,dot(n,light))));
    for(int x=0;x<2;x++)for(int y=0;y<2;y++){
      vec2 offset=(vec2(float(x),float(y))-.5)*1.6/u_shadowSize;
      float dep=unpack(texture2D(u_shadow,sc.xy+offset));shade+=step(sc.z-bias,dep)*.25;
@@ -79,7 +78,7 @@ export class RouteRenderer {
    if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));
    this.resources.push(['program',p]);
    const attributes=Object.fromEntries(['position','normal','color','material'].map(n=>[n,gl.getAttribLocation(p,'a_'+n)]));
-   const uniforms=Object.fromEntries(['model','vp','light','eye','shadow','sign','shadowSize'].map(n=>[n,gl.getUniformLocation(p,'u_'+n)]));return {p,attributes,uniforms};
+   const uniforms=Object.fromEntries(['model','vp','light','eye','shadow','sign','noise','shadowSize'].map(n=>[n,gl.getUniformLocation(p,'u_'+n)]));return {p,attributes,uniforms};
  }
  upload(data){const gl=this.gl,b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);this.resources.push(['buffer',b]);return {buffer:b,count:data.length/10};}
  init(){
@@ -91,13 +90,18 @@ export class RouteRenderer {
    this.skyBuffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.skyBuffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);this.resources.push(['buffer',this.skyBuffer]);
    const text=document.createElement('canvas');text.width=512;text.height=128;const c=text.getContext('2d');c.fillStyle='#234d40';c.fillRect(0,0,512,128);c.strokeStyle='#dcd8bb';c.lineWidth=4;c.strokeRect(8,8,496,112);c.textAlign='center';c.fillStyle='#fff5d8';c.font='bold 33px sans-serif';c.fillText('VICENTE GUERRERO',256,56);c.font='19px sans-serif';c.fillText('AYUNTAMIENTO 92 · GUASAVE',256,92);
    this.signTexture=gl.createTexture();this.resources.push(['texture',this.signTexture]);gl.bindTexture(gl.TEXTURE_2D,this.signTexture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,text);gl.generateMipmap(gl.TEXTURE_2D);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+   // Mipmapped material noise is prepared once, not regenerated per fragment.
+   this.noiseTexture=gl.createTexture();this.resources.push(['texture',this.noiseTexture]);gl.bindTexture(gl.TEXTURE_2D,this.noiseTexture);
+   const texels=new Uint8Array(256*256*4);let seed=92;
+   for(let i=0;i<texels.length;i+=4){seed=(Math.imul(seed,1664525)+1013904223)|0;const v=(seed>>>24);texels[i]=texels[i+1]=texels[i+2]=v;texels[i+3]=255;}
+   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,256,256,0,gl.RGBA,gl.UNSIGNED_BYTE,texels);gl.generateMipmap(gl.TEXTURE_2D);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
    this.shadowSize=Math.min(2048,gl.getParameter(gl.MAX_TEXTURE_SIZE));
    this.shadow=gl.createTexture();this.resources.push(['texture',this.shadow]);gl.bindTexture(gl.TEXTURE_2D,this.shadow);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,this.shadowSize,this.shadowSize,0,gl.RGBA,gl.UNSIGNED_BYTE,null);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
    const fb=gl.createFramebuffer(),rb=gl.createRenderbuffer();this.resources.push(['framebuffer',fb],['renderbuffer',rb]);gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.shadow,0);gl.bindRenderbuffer(gl.RENDERBUFFER,rb);gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT16,this.shadowSize,this.shadowSize);gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,rb);
    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw new Error('No se pudo preparar la iluminación de la ruta.');
    this.lightVP=multiply(ortho(-240,240,-320,320,10,850),lookAt([-260,400,-80],[0,0,-routeLength/2]));
-   gl.viewport(0,0,this.shadowSize,this.shadowSize);gl.clearColor(1,1,1,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.useProgram(this.depth.p);gl.uniformMatrix4fv(this.depth.uniforms.vp,false,this.lightVP);gl.uniformMatrix4fv(this.depth.uniforms.light,false,this.lightVP);this.draw(this.world,I(),this.depth);
-   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.bindRenderbuffer(gl.RENDERBUFFER,null);
+   gl.viewport(0,0,this.shadowSize,this.shadowSize);gl.clearColor(1,1,1,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(2,4);gl.useProgram(this.depth.p);gl.uniformMatrix4fv(this.depth.uniforms.vp,false,this.lightVP);gl.uniformMatrix4fv(this.depth.uniforms.light,false,this.lightVP);this.draw(this.world,I(),this.depth);
+   gl.disable(gl.POLYGON_OFFSET_FILL);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.bindRenderbuffer(gl.RENDERBUFFER,null);
    this.ready=true;this.eye=null;this.frameCount=0;this.triangles=this.world.count/3;
  }
  draw(mesh,transform,program=this.main){
@@ -118,8 +122,8 @@ export class RouteRenderer {
    // Only camera / vehicle / game-object matrices change during a ride.
    const q=routeAt(v.distance,v.lane*2.8),future=routeAt(v.distance+14,v.lane*2.8);
    const cockpit=this.camera==='driver',bump=playing&&!reducedMotion?Math.sin(v.distance*2.7)*Math.min(.014,v.speed*.0014):0;
-   const desiredEye=cockpit?[q.x-q.fx*.10,1.56+bump,q.z-q.fz*.10]:[q.x-q.fx*4.9,2.65+bump,q.z-q.fz*4.9];
-   const target=cockpit?[future.x,1.46,future.z]:[q.x+q.fx*9,1.12,q.z+q.fz*9];
+   const desiredEye=cockpit?[q.x-q.fx*.50,1.72+bump,q.z-q.fz*.50]:[q.x-q.fx*4.9,2.65+bump,q.z-q.fz*4.9];
+   const target=cockpit?[future.x,1.57,future.z]:[q.x+q.fx*9,1.12,q.z+q.fz*9];
    if(!this.eye){this.eye=desiredEye;this.viewTarget=target;}else{
      const f=1-Math.exp(-Math.min(dt,.1)*(reducedMotion?30:11));for(let i=0;i<3;i++){this.eye[i]+=(desiredEye[i]-this.eye[i])*f;this.viewTarget[i]+=(target[i]-this.viewTarget[i])*f;}
    }
@@ -131,7 +135,7 @@ export class RouteRenderer {
    const aspect=this.width/this.height,fov=(aspect<.85?79:64)+(reducedMotion?0:v.speed*.14);
    this.vp=multiply(perspective(fov*Math.PI/180,aspect,.075,520),lookAt(this.eye,this.viewTarget));
    gl.uniformMatrix4fv(this.main.uniforms.vp,false,this.vp);gl.uniformMatrix4fv(this.main.uniforms.light,false,this.lightVP);gl.uniform3fv(this.main.uniforms.eye,this.eye);gl.uniform1f(this.main.uniforms.shadowSize,this.shadowSize);
-   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.shadow);gl.uniform1i(this.main.uniforms.shadow,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.signTexture);gl.uniform1i(this.main.uniforms.sign,1);
+   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.shadow);gl.uniform1i(this.main.uniforms.shadow,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.signTexture);gl.uniform1i(this.main.uniforms.sign,1);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.noiseTexture);gl.uniform1i(this.main.uniforms.noise,2);
    this.draw(this.world,I());
    for(const s of [12,124,238,340]){const p=routeAt(s,-5.5);this.draw(this.sign,model(p.x,2.6,p.z,p.yaw,0,0,1.4,.35,1));}
    for(const o of objects){if(o.passed||o.distance<v.distance-5||o.distance>v.distance+125)continue;
