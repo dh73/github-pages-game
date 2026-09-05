@@ -9,37 +9,22 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 3
     steps:
-      - name: Find and verify embeddable official recordings without downloading media
+      - uses: actions/checkout@v4
+      - name: Verify official radio recordings
         shell: python
         run: |
-          import concurrent.futures, json, re, urllib.request, urllib.parse
-          pages = [
-            'https://www.elimparcial.com/espectaculos/2025/02/02/estas-son-las-5-canciones-mas-escuchadas-de-valentin-elizalde-en-plataformas-digitales/',
-            'https://acironline.mx/entretenimiento/musica/latina/recordemos-a-valentin-elizalde-con-sus-mejores-canciones/',
-            'https://hellomusictheory.com/learn/best-mexican-songs/'
-          ]
-          def text(url):
-            req = urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=18) as response:
-              return response.read(4000000).decode('utf-8','replace')
-          ids = {'4GufI9pKWFI'}
-          for url in pages:
-            try:
-              html = text(url).replace('\\/','/').replace('&amp;','&')
-              found = set(re.findall(r'(?:youtube(?:-nocookie)?\.com/(?:embed/|watch\?v=)|youtu\.be/)([A-Za-z0-9_-]{11})',html))
-              print('Embedded music candidates:', len(found), 'source:', url)
-              ids.update(found)
-            except Exception as error:
-              print(type(error).__name__, 'while checking source:', url)
-          def verify(video):
-            try:
-              url = 'https://www.youtube.com/oembed?format=json&url=' + urllib.parse.quote('https://www.youtube.com/watch?v='+video,safe='')
-              data = json.loads(text(url))
-              if 'elizalde' in (data.get('author_name','')+' '+data.get('title','')).lower():
-                print(json.dumps({key:data.get(key) for key in ['title','author_name','author_url']} | {'video':video},ensure_ascii=False))
-            except Exception as error:
-              print(type(error).__name__, 'while checking oEmbed:', video)
-          with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
-            list(pool.map(verify, sorted(ids)[:40]))
+          import json, urllib.request, urllib.parse
+          for video in ['BJhj7KrrPSg','1wauorb3vyg','4GufI9pKWFI','FrNTpDH5ruQ','Yqpj6ig-OUc']:
+            url='https://www.youtube.com/oembed?format=json&url='+urllib.parse.quote('https://www.youtube.com/watch?v='+video,safe='')
+            with urllib.request.urlopen(url,timeout=15) as response: data=json.load(response)
+            assert data['author_name']=='ValentinElizaldeVEVO',data
+            print(video,data['title'],data['author_name'])
+      - name: Package exact source for offline mobile regression testing
+        run: git archive HEAD -o /tmp/game-source.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: game-source
+          path: /tmp/game-source.tar
+          retention-days: 1
