@@ -46,7 +46,7 @@ export function installRadio(root){
   $('music-file').addEventListener('change',()=>{
     const file=$('music-file').files?.[0];if(!file)return;
     if(!file.type.startsWith('audio/')&&!/\.(mp3|m4a|wav|ogg|aac|flac)$/i.test(file.name)){status('Elige un archivo de audio compatible.','error');return;}
-    destroyPlayer();if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);mount.hidden=true;audio.hidden=false;audio.src=objectURL;audio.volume=.65;
+    destroyPlayer();if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);mount.hidden=true;audio.hidden=false;audio.src=objectURL;audio.volume=.65;audio.load();
     status(`Tu dispositivo · ${file.name} · no se sube a ningún servidor`,'local');audio.play().catch(()=>status('Archivo preparado. Toca ▶ en el audio para escucharlo.','blocked'));
   });
   audio.addEventListener('playing',()=>status('Reproduciendo tu archivo local · sin conexión','playing'));
