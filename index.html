@@ -5,67 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#151b1d">
   <meta name="color-scheme" content="dark">
-  <meta name="description" content="Maneja tu cuatrimoto por las panorámicas reales de Vicente Guerrero, Ayuntamiento 92, Guasave. Recoge sellos y supera el Reto 92.">
+  <meta name="description" content="Cuatrimoto 92: maneja por las panorámicas reales de Vicente Guerrero, Ayuntamiento 92, Guasave. Conducción suave y radio de Valentín Elizalde.">
   <title>Cuatrimoto 92 · Guasave</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23151b1d'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-family='sans-serif' font-size='36' font-weight='900' fill='%23ffad4d'%3E92%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://maps.google.com">
   <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="style.css?v=release-2">
-  <script type="module" src="game.js?v=release-2"></script>
+  <link rel="stylesheet" href="style.css?v=drive-3">
+  <script type="module" src="game.js?v=drive-3"></script>
 </head>
 <body>
-<main id="game" data-version="2.0">
+<main id="game" data-version="3.0">
   <header class="header">
     <div class="brand"><span class="badge">92</span><div><h1>CUATRIMOTO</h1><p>GUASAVE, SINALOA</p></div></div>
     <div class="location"><i></i><div><strong>Vicente Guerrero</strong><small>AYUNTAMIENTO 92</small></div></div>
     <nav aria-label="Opciones del juego">
-      <button id="sound" class="icon-button" aria-label="Activar sonido del motor" aria-pressed="false" title="Sonido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Zm5 3c3 2 3 6 0 8m3-11c5 4 5 10 0 14"/></svg></button>
+      <button id="radio-toggle" class="icon-button" aria-label="Radio de Valentín Elizalde" aria-expanded="false" aria-controls="radio-panel" title="Radio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 9l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/></svg></button>
+      <button id="sound" class="icon-button" aria-label="Activar sonido del motor" aria-pressed="false" title="Motor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Zm5 3c3 2 3 6 0 8m3-11c5 4 5 10 0 14"/></svg></button>
       <button id="pause" class="icon-button" aria-label="Pausar" disabled title="Pausa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
       <button id="fullscreen" class="icon-button" aria-label="Pantalla completa" title="Pantalla completa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button>
     </nav>
   </header>
-  <div class="ride-stats" aria-label="Marcador">
-    <span><b id="collected">0</b><small>/8 SELLOS</small></span>
-    <span><b id="score">0</b><small>PTS</small></span>
-    <span id="next-object">SELLO ↑</span>
-    <time id="clock">1:30</time>
-  </div>
+  <div class="ride-stats" aria-label="Marcador"><span><b id="collected">0</b><small>/8 SELLOS</small></span><span><b id="score">0</b><small>PTS</small></span><span id="next-object">SELLO ↑</span><time id="clock">1:30</time></div>
   <section id="street" class="street" aria-label="Calle Vicente Guerrero en panorámicas reales de Google">
-    <div id="views" class="views"></div>
-    <canvas id="course" aria-hidden="true"></canvas>
+    <div id="views" class="views"></div><canvas id="course" aria-hidden="true"></canvas>
     <div id="rider" aria-hidden="true"><img src="quad.svg" alt="" draggable="false"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <div id="loading" class="loading" role="status"><span class="spinner"></span><span>Cargando la calle…</span></div>
+    <div id="loading" class="loading" role="status"><span class="spinner"></span><span>Sincronizando la calle…</span></div>
     <div id="countdown" class="countdown" role="status" aria-live="assertive" hidden>3</div>
-    <div id="intro" class="overlay">
-      <div class="intro-card">
-        <span class="overline">UN PASEO POR LA 92</span>
-        <h2>La calle.<br>Tu cuatrimoto.</h2>
-        <div class="mode-picker" aria-label="Elige cómo jugar"><button data-mode="paseo" aria-pressed="false">Paseo<small>SIN PRISA</small></button><button data-mode="reto" aria-pressed="true">Reto 92<small>CONTRA RELOJ</small></button></div>
-        <p id="mission">8 sellos, 90 segundos. Esquiva los conos y encadena una vuelta perfecta.</p>
-        <div class="control-hint"><span>← →<small>DIRIGE</small></span><span>ACELERA<small>MANTÉN PRESIONADO</small></span><span>FRENO<small>BAJA LA VELOCIDAD</small></span></div>
-        <button id="start" class="primary" disabled>Cargando la calle…</button>
-        <div class="below-start"><small id="best">TU PRIMERA VUELTA EMPIEZA AQUÍ</small><button id="repair-intro" class="text-button">¿No ves la calle? Reintentar</button></div>
-        <small class="keyboard-hint">WASD / flechas · espacio: freno · P: pausa · R: reiniciar</small>
-      </div>
-    </div>
-    <div id="pause-screen" class="overlay centered" hidden><div class="intro-card compact">
-      <span class="overline">CUATRIMOTO 92</span><h2>Una pausa.</h2><p>Tu vuelta te espera.</p>
-      <button id="resume" class="primary">Seguir rodando</button><button id="restart-pause" class="secondary">Volver al inicio</button><button id="repair" class="text-button">Recargar la calle sin perder avance</button>
+    <div id="intro" class="overlay"><div class="intro-card">
+      <span class="overline">UN PASEO POR LA 92</span><h2>La calle.<br>Tu cuatrimoto.</h2>
+      <div class="mode-picker" aria-label="Elige cómo jugar"><button data-mode="paseo" aria-pressed="false">Paseo<small>SIN PRISA</small></button><button data-mode="reto" aria-pressed="true">Reto 92<small>CONTRA RELOJ</small></button></div>
+      <p id="mission">8 sellos, 90 segundos. Esquiva los conos y encadena una vuelta perfecta.</p>
+      <div class="control-hint"><span>← →<small>DIRIGE</small></span><span>ACELERA<small>MANTÉN PRESIONADO</small></span><span>FRENO<small>BAJA LA VELOCIDAD</small></span></div>
+      <button id="start" class="primary" disabled>Preparando la calle…</button>
+      <div class="below-start"><small id="best">TU PRIMERA VUELTA EMPIEZA AQUÍ</small><button id="repair-intro" class="text-button">¿No ves la calle? Reintentar</button></div>
+      <small class="keyboard-hint">WASD / flechas · espacio: freno · P: pausa · R: reiniciar</small>
     </div></div>
-    <div id="finish" class="overlay centered" hidden><div class="intro-card compact">
-      <span id="finish-eyebrow" class="overline">TRAMO COMPLETADO</span><h2 id="finish-title">¡Llegaste!</h2>
-      <div id="result-stars" class="result-stars" aria-label="0 de 3 estrellas">☆☆☆</div>
-      <div class="result-points"><b id="result-score">0</b><small>PUNTOS</small></div><p id="result"></p><p id="result-tip"></p>
-      <button id="restart" class="primary">Otra vuelta</button>
-    </div></div>
-    <div id="error-screen" class="overlay centered" hidden><div class="intro-card compact">
-      <span class="overline">VUELTA EN PAUSA</span><h2>No cargó la calle.</h2><p id="error-message">Revisa tu conexión. Tu avance se conserva.</p>
-      <button id="retry" class="primary">Reintentar</button><button id="restart-error" class="secondary">Volver al inicio</button>
-    </div></div>
+    <div id="pause-screen" class="overlay centered" hidden><div class="intro-card compact"><span class="overline">CUATRIMOTO 92</span><h2>Una pausa.</h2><p>Tu vuelta te espera.</p><button id="resume" class="primary">Seguir rodando</button><button id="restart-pause" class="secondary">Volver al inicio</button><button id="repair" class="text-button">Recargar la calle sin perder avance</button></div></div>
+    <div id="finish" class="overlay centered" hidden><div class="intro-card compact"><span id="finish-eyebrow" class="overline">TRAMO COMPLETADO</span><h2 id="finish-title">¡Llegaste!</h2><div id="result-stars" class="result-stars" aria-label="0 de 3 estrellas">☆☆☆</div><div class="result-points"><b id="result-score">0</b><small>PUNTOS</small></div><p id="result"></p><p id="result-tip"></p><button id="restart" class="primary">Otra vuelta</button></div></div>
+    <div id="error-screen" class="overlay centered" hidden><div class="intro-card compact"><span class="overline">VUELTA EN PAUSA</span><h2>No cargó la calle.</h2><p id="error-message">Revisa tu conexión. Tu avance se conserva.</p><button id="retry" class="primary">Reintentar</button><button id="restart-error" class="secondary">Volver al inicio</button></div></div>
   </section>
   <footer class="dashboard">
-    <div class="route-note"><span>CALLE REAL · RECORRIDO POR PANORAMAS</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Ruta © OpenStreetMap</a></div>
+    <div class="route-note"><span>CALLE REAL · MOVIMIENTO INTERPOLADO</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Ruta © OpenStreetMap</a></div>
     <div class="trip"><span id="distance">0 m</span><div class="trip-track"><div id="progress"></div></div><span id="remaining">META</span></div>
     <div id="pedal-controls" class="driving-controls" inert>
       <div class="steering"><button class="drive steer" data-key="left" aria-label="Girar a la izquierda">❮</button><button class="drive steer" data-key="right" aria-label="Girar a la derecha">❯</button></div>
@@ -74,6 +55,13 @@
     </div>
   </footer>
 </main>
+<aside id="radio-panel" class="radio-panel" aria-label="Radio 92" hidden>
+  <div class="radio-heading"><div><small>RADIO 92</small><strong>Valentín Elizalde</strong></div><button id="radio-close" class="icon-button" aria-label="Cerrar y apagar radio">×</button></div>
+  <div id="radio-player"></div>
+  <div id="local-player" hidden><select id="local-tracks" aria-label="Canción local"></select><audio id="local-audio" controls preload="none"></audio></div>
+  <div class="radio-options"><button id="radio-spotify">Spotify</button><label for="music-files">Mis canciones<input id="music-files" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac" multiple></label></div>
+  <p id="radio-status">Pulsa ▶ para escuchar. Tus archivos locales nunca se suben.</p>
+</aside>
 <noscript><div class="noscript">Activa JavaScript en tu navegador para jugar Cuatrimoto 92.</div></noscript>
 </body>
 </html>
