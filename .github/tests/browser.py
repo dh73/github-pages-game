@@ -61,6 +61,8 @@ async def run():
                 assert await page.locator('#radio-player iframe').count()==0
                 await page.locator('#radio-toggle').tap(); await wait(100)
                 assert await page.locator('#radio-track option').count()==5
+                radio_road=await page.locator('#street').bounding_box()
+                assert radio_road['height']>=200 and radio_road['width']>=200,(name,radio_road)
                 media = await page.locator('#radio-player iframe').bounding_box()
                 assert media and media['width']>=200 and media['height']>=200, (name,media)
                 assert media['x']>=0 and media['x']+media['width']<=width+1, (name,media)
@@ -81,21 +83,21 @@ async def run():
                 await page.locator('#sound').tap()
                 await wait(100)
                 assert await page.locator('#sound').get_attribute('aria-pressed')=='true'
-                # Two real simultaneous fingers in Chromium. WebKit uses the same PointerEvent path.
+                # Two fingers accelerate and steer together; allow the new low-speed inertia to develop.
                 if args.engine == 'chromium':
                     cdp = await context.new_cdp_session(page)
                     def point(r, i): return {'x':r['x']+r['width']/2,'y':r['y']+r['height']/2,'id':i}
                     gas = point(await page.locator('[data-key=gas]').bounding_box(),1)
                     right = point(await page.locator('[data-key=right]').bounding_box(),2)
                     await cdp.send('Input.dispatchTouchEvent', {'type':'touchStart','touchPoints':[gas,right]})
-                    await wait(850)
+                    await wait(1200)
                     st = await state(page)
                     assert float(st['speed'])>0 and float(st['lane'])>.05, st
                     await cdp.send('Input.dispatchTouchEvent', {'type':'touchCancel','touchPoints':[]})
                 else:
                     for key, pointer in [('gas',1),('right',2)]:
                         await page.locator(f'[data-key={key}]').dispatch_event('pointerdown', {'pointerId':pointer,'pointerType':'touch','buttons':1})
-                    await wait(850)
+                    await wait(1200)
                     st = await state(page)
                     assert float(st['speed'])>0 and float(st['lane'])>.05, st
                     for key,pointer in [('gas',1),('right',2)]:

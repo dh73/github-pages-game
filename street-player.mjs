@@ -78,6 +78,7 @@ export class StreetPlayer {
     this.active = slot; this.lastSwitch = performance.now();
     for (const s of this.slots) {
       s.frame.classList.toggle('visible', s === slot);
+      s.frame.classList.toggle('outgoing', s === previous);
       s.frame.style.zIndex = s === slot ? '2' : s === previous ? '1' : '0';
       s.frame.setAttribute('aria-hidden',String(s !== slot)); s.frame.tabIndex = s === slot ? 0 : -1;
     }

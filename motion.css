@@ -39,10 +39,23 @@
  #game.radio-open .radio-heading small{font-size:7px}
 }
 
+.views iframe.outgoing{opacity:1;pointer-events:none}
+.radio-heading .icon-button{width:44px;height:44px}
+.radio-select select,.radio-select button{min-height:44px}
+@media(orientation:portrait) and (max-height:740px),(orientation:landscape) and (max-height:430px){
+ .radio-panel{display:grid;grid-template-columns:minmax(0,1fr) 44px;grid-template-rows:44px 200px 16px;grid-template-areas:"select close" "player player" "link link";padding:0 5px!important;gap:0;align-content:center}
+ .radio-heading{grid-area:close;height:44px!important;margin:0}.radio-heading>div{display:none}
+ .radio-heading .icon-button{width:44px;height:44px!important}
+ .radio-select{grid-area:select;margin:0;align-items:center}.radio-select select,.radio-select button{min-height:44px}
+ .radio-player{grid-area:player}.radio-panel>a{grid-area:link;line-height:16px;font-size:9px}.radio-panel p{display:none}
+}
 @media(orientation:portrait) and (max-height:740px){
- #game.radio-open .header{height:40px}#game.radio-open .brand p{display:none}
- #game.radio-open .ride-stats{min-height:26px;padding-top:3px;padding-bottom:3px}
+ #game.radio-open .header{height:36px}#game.radio-open .brand p{display:none}
+ #game.radio-open .icon-button{width:36px;height:36px}
+ #game.radio-open .ride-stats{min-height:24px;padding-top:3px;padding-bottom:3px}
  #game.radio-open .drive{height:44px;gap:3px}#game.radio-open .route-note,#game.radio-open .trip{display:none}
- #game.radio-open .dashboard{padding-top:5px;padding-bottom:calc(6px + var(--safe-bottom))}
+ #game.radio-open .dashboard{padding-top:1px;padding-bottom:calc(1px + var(--safe-bottom))}
+ #game.radio-open .speedometer span{font-size:7px}#game.radio-open #speed{font-size:24px}
  #game.radio-open #rider{width:90px;bottom:38px}
+ #game.radio-open #radio-close{width:44px;height:44px}
 }
