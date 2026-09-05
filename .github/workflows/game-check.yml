@@ -37,6 +37,9 @@ jobs:
         run: |
           python3 -m pip install --quiet playwright==1.55.0
           python3 -m playwright install --with-deps ${{ matrix.engine }} > /tmp/browser-install.log 2>&1 || { tail -80 /tmp/browser-install.log; exit 1; }
+      - name: Native file diagnostic
+        if: matrix.engine == 'webkit'
+        run: python3 .github/tests/media-probe.py
       - name: Real WebGL, complete offline ride, multi-touch and nonzero audio
         run: python3 .github/tests/browser.py --engine ${{ matrix.engine }}
       - uses: actions/upload-artifact@v4
